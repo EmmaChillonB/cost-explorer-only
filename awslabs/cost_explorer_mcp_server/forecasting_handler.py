@@ -24,8 +24,8 @@ from awslabs.cost_explorer_mcp_server.constants import (
     VALID_FORECAST_METRICS,
     VALID_PREDICTION_INTERVALS,
 )
-from awslabs.cost_explorer_mcp_server.helpers import (
-    get_cost_explorer_client,
+from awslabs.cost_explorer_mcp_server.auth import get_cost_explorer_client
+from awslabs.cost_explorer_mcp_server.validation import (
     validate_expression,
     validate_forecast_date_range,
 )
@@ -45,6 +45,10 @@ logger.add(sys.stderr, level=os.getenv('FASTMCP_LOG_LEVEL', 'WARNING'))
 async def get_cost_forecast(
     ctx: Context,
     date_range: DateRange,
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    ),
     granularity: str = Field(
         'MONTHLY',
         description=f'The granularity at which forecast data is aggregated. Valid values are {" and ".join(VALID_FORECAST_GRANULARITIES)}. DAILY forecasts support up to 3 months, MONTHLY forecasts support up to 12 months. If not provided, defaults to MONTHLY.',
@@ -78,6 +82,7 @@ async def get_cost_forecast(
     Example: Get monthly cost forecast for EC2 services for next quarter
         await get_cost_forecast(
             ctx=context,
+            client_id="client-finance",
             date_range={
                 "start_date": "2025-06-19",  # Today or earlier
                 "end_date": "2025-09-30"     # Future date
@@ -96,6 +101,7 @@ async def get_cost_forecast(
 
     Args:
         ctx: MCP context
+        client_id: Client identifier for session management
         date_range: The forecast period dates in YYYY-MM-DD format (start_date <= today, end_date > today)
         granularity: The granularity at which forecast data is aggregated (DAILY, MONTHLY)
         filter_expression: Filter criteria as a Python dictionary
@@ -146,7 +152,7 @@ async def get_cost_forecast(
             )
 
             validation_result = validate_expression(
-                filter_criteria, validation_start, validation_end
+                filter_criteria, validation_start, validation_end, client_id
             )
             if 'error' in validation_result:
                 return validation_result
@@ -167,7 +173,7 @@ async def get_cost_forecast(
             forecast_params['Filter'] = filter_criteria
 
         # Get forecast data
-        ce = get_cost_explorer_client()
+        ce = get_cost_explorer_client(client_id)
 
         try:
             response = ce.get_cost_forecast(**forecast_params)

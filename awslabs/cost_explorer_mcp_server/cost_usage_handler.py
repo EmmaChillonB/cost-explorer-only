@@ -26,12 +26,12 @@ from awslabs.cost_explorer_mcp_server.constants import (
     VALID_GRANULARITIES,
     VALID_MATCH_OPTIONS,
 )
-from awslabs.cost_explorer_mcp_server.helpers import (
-    format_date_for_api,
-    get_cost_explorer_client,
+from awslabs.cost_explorer_mcp_server.auth import get_cost_explorer_client
+from awslabs.cost_explorer_mcp_server.validation import (
     validate_expression,
     validate_group_by,
 )
+from awslabs.cost_explorer_mcp_server.helpers import format_date_for_api
 from awslabs.cost_explorer_mcp_server.models import DateRange
 from datetime import datetime, timedelta
 from loguru import logger
@@ -50,7 +50,14 @@ COST_EXPLORER_END_DATE_OFFSET = 1  # Offset to ensure end date is inclusive
 
 async def get_cost_and_usage(
     ctx: Context,
-    date_range: DateRange,
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    ),
+    date_range: DateRange = Field(
+        ...,
+        description="The billing period start and end dates in YYYY-MM-DD format (end date is inclusive)"
+    ),
     granularity: str = Field(
         'MONTHLY',
         description=f'The granularity at which cost data is aggregated. Valid values are {", ".join(VALID_GRANULARITIES)}. If not provided, defaults to MONTHLY.',
@@ -153,6 +160,7 @@ async def get_cost_and_usage(
 
     Args:
         ctx: MCP context
+        client_id: Client identifier for session management
         date_range: The billing period start and end dates in YYYY-MM-DD format (end date is inclusive)
         granularity: The granularity at which cost data is aggregated (DAILY, MONTHLY, HOURLY)
         group_by: Either a dictionary with Type and Key, or simply a string key to group by
@@ -208,7 +216,7 @@ async def get_cost_and_usage(
         if filter_criteria:
             # This validates both structure and values against AWS Cost Explorer
             validation_result = validate_expression(
-                filter_criteria, billing_period_start, billing_period_end_adj
+                filter_criteria, billing_period_start, billing_period_end_adj, client_id
             )
             if 'error' in validation_result:
                 return validation_result
@@ -241,7 +249,7 @@ async def get_cost_and_usage(
         # Get cost data
         grouped_costs = {}
         next_token = None
-        ce = get_cost_explorer_client()
+        ce = get_cost_explorer_client(client_id)
 
         while True:
             if next_token:

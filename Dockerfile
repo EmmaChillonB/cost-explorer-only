@@ -82,4 +82,11 @@ USER app
 
 # When running the container, add --db-path and a bind mount to the host's db file
 HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 CMD ["docker-healthcheck.sh"]
+
+# Environment variables for K3s/IAM Anywhere
+# These should be set when running the container, not here
+# AWS_REGION: Required (default: us-east-1)
+# AWS_ROLE_ARN: Required for assuming role
+# FASTMCP_LOG_LEVEL: Optional (default: ERROR)
+
 ENTRYPOINT ["awslabs.cost-explorer-mcp-server"]

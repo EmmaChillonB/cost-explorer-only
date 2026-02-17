@@ -20,14 +20,16 @@ Comparison tools for Cost Explorer MCP Server.
 import os
 import sys
 from awslabs.cost_explorer_mcp_server.constants import VALID_COST_METRICS
+from awslabs.cost_explorer_mcp_server.auth import get_cost_explorer_client
+from awslabs.cost_explorer_mcp_server.validation import (
+    validate_comparison_date_range,
+    validate_expression,
+    validate_group_by,
+)
 from awslabs.cost_explorer_mcp_server.helpers import (
     create_detailed_group_key,
     extract_group_key_from_complex_selector,
     extract_usage_context_from_selector,
-    get_cost_explorer_client,
-    validate_comparison_date_range,
-    validate_expression,
-    validate_group_by,
 )
 from awslabs.cost_explorer_mcp_server.models import DateRange
 from loguru import logger
@@ -51,6 +53,7 @@ def _validate_comparison_inputs(
     metric_for_comparison: str,
     group_by: Optional[Union[Dict[str, str], str]],
     filter_expression: Optional[Dict[str, Any]],
+    client_id: str,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
     """Validate inputs and prepare comparison request parameters.
 
@@ -60,6 +63,7 @@ def _validate_comparison_inputs(
         metric_for_comparison: Cost metric to compare
         group_by: Grouping configuration
         filter_expression: Optional filter criteria
+        client_id: Client identifier for session management
 
     Returns:
         Tuple of (is_valid, error_message, validated_params)
@@ -92,7 +96,9 @@ def _validate_comparison_inputs(
 
     # Validate filter expression if provided
     if filter_expression:
-        validation_result = validate_expression(filter_expression, baseline_start, baseline_end)
+        validation_result = validate_expression(
+            filter_expression, baseline_start, baseline_end, client_id
+        )
         if 'error' in validation_result:
             return False, validation_result['error'], {}
 
@@ -167,6 +173,10 @@ async def get_cost_and_usage_comparisons(
     ctx: Context,
     baseline_date_range: DateRange,
     comparison_date_range: DateRange,
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    ),
     metric_for_comparison: str = Field(
         'UnblendedCost',
         description=f'The cost and usage metric to compare. Valid values are {", ".join(VALID_COST_METRICS)}.',
@@ -241,6 +251,7 @@ async def get_cost_and_usage_comparisons(
             metric_for_comparison,
             group_by,
             filter_expression,
+            client_id,
         )
 
         if not is_valid:
@@ -267,9 +278,10 @@ async def get_cost_and_usage_comparisons(
         )
 
         # Get comparison data
+        ce = get_cost_explorer_client(client_id)
+
         grouped_comparisons = {}
         next_token = None
-        ce = get_cost_explorer_client()
 
         while True:
             if next_token:
@@ -407,6 +419,10 @@ async def get_cost_comparison_drivers(
     ctx: Context,
     baseline_date_range: DateRange,
     comparison_date_range: DateRange,
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    ),
     metric_for_comparison: str = Field(
         'UnblendedCost',
         description=f'The cost and usage metric to analyze drivers for. Valid values are {", ".join(VALID_COST_METRICS)}.',
@@ -510,6 +526,7 @@ async def get_cost_comparison_drivers(
             metric_for_comparison,
             group_by,
             filter_expression,
+            client_id,
         )
 
         if not is_valid:
@@ -536,9 +553,10 @@ async def get_cost_comparison_drivers(
         )
 
         # Get cost driver data
+        ce = get_cost_explorer_client(client_id)
+
         grouped_drivers = {}
         next_token = None
-        ce = get_cost_explorer_client()
 
         while True:
             if next_token:

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from awslabs.cost_explorer_mcp_server.constants import VALID_DIMENSIONS
-from awslabs.cost_explorer_mcp_server.helpers import validate_date_format, validate_date_range
+from awslabs.cost_explorer_mcp_server.validation import validate_date_format, validate_date_range
 from pydantic import BaseModel, Field, field_validator
 
 

@@ -1,0 +1,7 @@
+loguru
+pydantic
+fastmcp
+awscli
+boto3
+pandas
+pytest

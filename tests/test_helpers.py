@@ -14,15 +14,10 @@
 
 """Comprehensive tests for helpers module."""
 
+import os
 import pytest
-from awslabs.cost_explorer_mcp_server.helpers import (
-    create_detailed_group_key,
-    extract_group_key_from_complex_selector,
-    extract_usage_context_from_selector,
-    format_date_for_api,
-    get_available_dimension_values,
-    get_available_tag_values,
-    get_cost_explorer_client,
+from awslabs.cost_explorer_mcp_server.auth import get_cost_explorer_client
+from awslabs.cost_explorer_mcp_server.validation import (
     validate_comparison_date_range,
     validate_date_format,
     validate_date_range,
@@ -32,78 +27,30 @@ from awslabs.cost_explorer_mcp_server.helpers import (
     validate_group_by,
     validate_match_options,
 )
+from awslabs.cost_explorer_mcp_server.helpers import (
+    create_detailed_group_key,
+    extract_group_key_from_complex_selector,
+    extract_usage_context_from_selector,
+    format_date_for_api,
+    get_available_dimension_values,
+    get_available_tag_values,
+)
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 
 class TestGetCostExplorerClient:
-    """Tests for the get_cost_explorer_client function."""
+    """Tests for the get_cost_explorer_client function.
+    
+    Note: The actual client creation is now handled in auth.py with multi-client
+    support. See test_auth_multiclient.py for comprehensive auth tests.
+    These tests verify the re-export from helpers works correctly.
+    """
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.boto3.Session')
-    @patch('os.environ.get')
-    def test_get_client_with_profile_and_region(self, mock_env_get, mock_session):
-        """Test client creation with AWS profile and custom region."""
-        mock_client = MagicMock()
-        mock_session.return_value.client.return_value = mock_client
-
-        # Mock environment variables
-        def env_side_effect(key, default=None):
-            env_vars = {
-                'AWS_PROFILE': 'test-profile',
-                'AWS_REGION': 'us-west-2',
-                'FASTMCP_LOG_LEVEL': 'WARNING',
-            }
-            return env_vars.get(key, default)
-
-        mock_env_get.side_effect = env_side_effect
-
-        # Get client
-        client = get_cost_explorer_client()
-
-        # Verify client was created with correct parameters
-        mock_session.assert_called_once()
-        mock_session.return_value.client.assert_called_once()
-        assert client == mock_client
-
-    @patch('awslabs.cost_explorer_mcp_server.helpers.boto3.Session')
-    @patch('os.environ.get')
-    def test_get_client_without_profile(self, mock_env_get, mock_session):
-        """Test client creation without AWS profile."""
-        mock_client = MagicMock()
-        mock_session.return_value.client.return_value = mock_client
-
-        # Mock environment variables without profile
-        def env_side_effect(key, default=None):
-            env_vars = {
-                'AWS_REGION': 'us-east-1',
-            }
-            return env_vars.get(key, default)
-
-        mock_env_get.side_effect = env_side_effect
-
-        # Reset the global client cache
-        import awslabs.cost_explorer_mcp_server.helpers
-
-        awslabs.cost_explorer_mcp_server.helpers._cost_explorer_client = None
-
-        # Get client
-        client = get_cost_explorer_client()
-
-        # Verify client was created
-        assert client == mock_client
-
-    @patch('awslabs.cost_explorer_mcp_server.helpers.boto3.Session')
-    def test_get_client_exception_handling(self, mock_session):
-        """Test client creation with exception."""
-        mock_session.side_effect = Exception('AWS Error')
-
-        # Reset the global client cache
-        import awslabs.cost_explorer_mcp_server.helpers
-
-        awslabs.cost_explorer_mcp_server.helpers._cost_explorer_client = None
-
-        with pytest.raises(Exception, match='AWS Error'):
-            get_cost_explorer_client()
+    def test_get_cost_explorer_client_is_importable(self):
+        """Test that get_cost_explorer_client can be imported from helpers."""
+        from awslabs.cost_explorer_mcp_server.helpers import get_cost_explorer_client
+        assert callable(get_cost_explorer_client)
 
 
 class TestValidation:
@@ -209,7 +156,7 @@ class TestValidation:
         result = validate_group_by(None)
         assert 'error' in result
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_valid(self, mock_datetime):
         """Test forecast date range validation with valid range."""
         # Mock current date
@@ -219,7 +166,7 @@ class TestValidation:
         is_valid, _ = validate_forecast_date_range('2025-06-15', '2025-07-15')
         assert is_valid is True
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_start_in_future(self, mock_datetime):
         """Test forecast date range validation with start date in future."""
         # Mock current date
@@ -230,7 +177,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be equal to or no later than the current date' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_end_in_past(self, mock_datetime):
         """Test forecast date range validation with end date in past."""
         # Mock current date
@@ -241,7 +188,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be in the future' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_daily_too_long(self, mock_datetime):
         """Test forecast date range validation with daily granularity too long."""
         # Mock current date
@@ -252,7 +199,7 @@ class TestValidation:
         assert is_valid is False
         assert 'DAILY granularity supports a maximum of 3 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_comparison_date_range_valid(self, mock_datetime):
         """Test comparison date range validation with valid range."""
         # Mock current date
@@ -262,7 +209,7 @@ class TestValidation:
         is_valid, _ = validate_comparison_date_range('2025-01-01', '2025-02-01')
         assert is_valid is True
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_comparison_date_range_not_first_day(self, mock_datetime):
         """Test comparison date range validation with non-first day."""
         # Mock current date
@@ -273,7 +220,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be the first day of a month' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_comparison_date_range_not_one_month(self, mock_datetime):
         """Test comparison date range validation with non-one-month duration."""
         # Mock current date
@@ -328,28 +275,32 @@ class TestValidation:
 class TestValidateExpression:
     """Tests for validate_expression function."""
 
+    @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_valid(self, mock_get_values):
-        """Test expression validation with valid dimensions."""
+        """Test expression validation with valid dimensions when validation enabled."""
         mock_get_values.return_value = {'values': ['EC2', 'S3']}
 
         expression = {
             'Dimensions': {'Key': 'SERVICE', 'Values': ['EC2'], 'MatchOptions': ['EQUALS']}
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
+    @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_invalid_value(self, mock_get_values):
-        """Test expression validation with invalid dimension value."""
+        """Test expression validation with invalid dimension value when validation enabled."""
         mock_get_values.return_value = {'values': ['EC2', 'S3']}
 
         expression = {
             'Dimensions': {'Key': 'SERVICE', 'Values': ['INVALID'], 'MatchOptions': ['EQUALS']}
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'Invalid value' in result['error']
 
@@ -362,20 +313,22 @@ class TestValidateExpression:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'must include "Key", "Values", and "MatchOptions"' in result['error']
 
+    @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values')
     def test_validate_expression_tags_valid(self, mock_get_values):
-        """Test expression validation with valid tags."""
+        """Test expression validation with valid tags when validation enabled."""
         mock_get_values.return_value = {'values': ['Production', 'Development']}
 
         expression = {
             'Tags': {'Key': 'Environment', 'Values': ['Production'], 'MatchOptions': ['EQUALS']}
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
     def test_validate_expression_cost_categories_valid(self):
@@ -388,7 +341,7 @@ class TestValidateExpression:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
     def test_validate_expression_logical_and(self):
@@ -405,7 +358,7 @@ class TestValidateExpression:
             ]
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
     def test_validate_expression_logical_or(self):
@@ -422,7 +375,7 @@ class TestValidateExpression:
             ]
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
     def test_validate_expression_logical_not(self):
@@ -437,14 +390,14 @@ class TestValidateExpression:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert result == {}
 
     def test_validate_expression_multiple_logical_operators(self):
         """Test expression validation with multiple logical operators."""
         expression = {'And': [], 'Or': []}
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'Only one logical operator' in result['error']
 
@@ -452,7 +405,7 @@ class TestValidateExpression:
         """Test expression validation with no valid keys."""
         expression = {'InvalidKey': 'value'}
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'must include at least one of the following keys' in result['error']
 
@@ -462,7 +415,7 @@ class TestValidateExpression:
         expression = {
             'CostCategories': {'Key': 'Dept', 'Values': ['Eng'], 'MatchOptions': ['EQUALS']}
         }
-        result = validate_expression(expression, 'invalid-date', '2025-01-31')
+        result = validate_expression(expression, 'invalid-date', '2025-01-31', 'test-client')
         assert 'error' in result
         # The error message will be about date format, not general validation error
         assert 'not in YYYY-MM-DD format' in result['error']
@@ -476,7 +429,7 @@ class TestErrorHandling:
         """Test dimension values with client creation error."""
         mock_get_client.side_effect = Exception('Client creation failed')
 
-        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31')
+        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'Client creation failed' in result['error']
@@ -486,13 +439,14 @@ class TestErrorHandling:
         """Test tag values with client creation error."""
         mock_get_client.side_effect = Exception('Client creation failed')
 
-        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31')
+        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'Client creation failed' in result['error']
 
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_tags_error(self):
-        """Test expression validation with tags API error."""
+        """Test expression validation with tags API error when validation enabled."""
         expression = {
             'Tags': {'Key': 'Environment', 'Values': ['Production'], 'MatchOptions': ['EQUALS']}
         }
@@ -502,13 +456,14 @@ class TestErrorHandling:
             'awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values',
             return_value={'error': 'Tag API error'},
         ):
-            result = validate_expression(expression, '2025-01-01', '2025-01-31')
+            result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'Tag API error' in result['error']
 
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_dimensions_error(self):
-        """Test expression validation with dimensions API error."""
+        """Test expression validation with dimensions API error when validation enabled."""
         expression = {
             'Dimensions': {'Key': 'SERVICE', 'Values': ['EC2'], 'MatchOptions': ['EQUALS']}
         }
@@ -518,13 +473,14 @@ class TestErrorHandling:
             'awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values',
             return_value={'error': 'Dimension API error'},
         ):
-            result = validate_expression(expression, '2025-01-01', '2025-01-31')
+            result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'Dimension API error' in result['error']
 
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_invalid_tag_values(self):
-        """Test expression validation with invalid tag values."""
+        """Test expression validation with invalid tag values when validation enabled."""
         expression = {
             'Tags': {'Key': 'Environment', 'Values': ['InvalidValue'], 'MatchOptions': ['EQUALS']}
         }
@@ -534,7 +490,7 @@ class TestErrorHandling:
             'awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values',
             return_value={'values': ['Production', 'Development']},
         ):
-            result = validate_expression(expression, '2025-01-01', '2025-01-31')
+            result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'Invalid value' in result['error']
@@ -550,7 +506,7 @@ class TestErrorHandling:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'must include "Key", "Values", and "MatchOptions"' in result['error']
@@ -565,7 +521,7 @@ class TestErrorHandling:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'must include "Key", "Values", and "MatchOptions"' in result['error']
@@ -646,7 +602,7 @@ class TestAdditionalCoverage:
         mock_get_client.return_value = mock_client
         mock_client.get_dimension_values.return_value = {'DimensionValues': []}
 
-        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31')
+        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'values' in result
         assert result['values'] == []
@@ -658,7 +614,7 @@ class TestAdditionalCoverage:
         mock_get_client.return_value = mock_client
         mock_client.get_tags.return_value = {'Tags': []}
 
-        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31')
+        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'values' in result
         assert result['values'] == []
@@ -689,7 +645,7 @@ class TestAdditionalCoverage:
         result = extract_group_key_from_complex_selector(selector, group_by)
         assert result == 'No SERVICE'
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_monthly_too_long(self, mock_datetime):
         """Test forecast date range validation with monthly granularity too long."""
         # Mock current date
@@ -700,25 +656,31 @@ class TestAdditionalCoverage:
         assert is_valid is False
         assert 'MONTHLY granularity supports a maximum of 12 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.validate_date_range')
-    def test_get_available_dimension_values_date_validation_error(self, mock_validate):
-        """Test dimension values with date validation error."""
-        mock_validate.return_value = (False, 'Invalid date range')
+    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    def test_get_available_dimension_values_with_invalid_date_order(self, mock_get_client):
+        """Test dimension values with start date after end date returns error from AWS."""
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        # AWS will return ValidationException for invalid date range
+        mock_client.get_dimension_values.side_effect = Exception('ValidationException: Start date must be before end date')
 
-        result = get_available_dimension_values('SERVICE', '2025-01-31', '2025-01-01')
-
-        assert 'error' in result
-        assert 'Invalid date range' in result['error']
-
-    @patch('awslabs.cost_explorer_mcp_server.helpers.validate_date_range')
-    def test_get_available_tag_values_date_validation_error(self, mock_validate):
-        """Test tag values with date validation error."""
-        mock_validate.return_value = (False, 'Invalid date range')
-
-        result = get_available_tag_values('Environment', '2025-01-31', '2025-01-01')
+        result = get_available_dimension_values('SERVICE', '2025-01-31', '2025-01-01', 'test-client')
 
         assert 'error' in result
-        assert 'Invalid date range' in result['error']
+        assert 'ValidationException' in result['error']
+
+    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    def test_get_available_tag_values_with_invalid_date_order(self, mock_get_client):
+        """Test tag values with start date after end date returns error from AWS."""
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        # AWS will return ValidationException for invalid date range
+        mock_client.get_tags.side_effect = Exception('ValidationException: Start date must be before end date')
+
+        result = get_available_tag_values('Environment', '2025-01-31', '2025-01-01', 'test-client')
+
+        assert 'error' in result
+        assert 'ValidationException' in result['error']
 
     def test_validate_date_format_invalid_format(self):
         """Test date format validation with invalid format."""
@@ -750,10 +712,11 @@ class TestAdditionalCoverage:
             'Dimensions': {'Key': 'SERVICE', 'Values': ['EC2'], 'MatchOptions': ['INVALID_OPTION']}
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'Invalid MatchOption' in result['error']
 
+    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
     @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_api_error(self, mock_get_values):
         """Test expression validation when dimension API returns error."""
@@ -763,7 +726,7 @@ class TestAdditionalCoverage:
             'Dimensions': {'Key': 'SERVICE', 'Values': ['EC2'], 'MatchOptions': ['EQUALS']}
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'API connection failed' in result['error']
 
@@ -777,7 +740,7 @@ class TestAdditionalCoverage:
             }
         }
 
-        result = validate_expression(expression, '2025-01-01', '2025-01-31')
+        result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
         assert 'error' in result
         assert 'must include "Key", "Values", and "MatchOptions"' in result['error']
 
@@ -1021,7 +984,7 @@ class TestExtractGroupKeyFromComplexSelector:
 class TestValidateForecastDateRange:
     """Tests for the validate_forecast_date_range function."""
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_future_start_date(self, mock_datetime):
         """Test validation fails when start date is in the future."""
         # Create a real datetime object for the current date
@@ -1036,7 +999,7 @@ class TestValidateForecastDateRange:
 
         # Test with start date in the future
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.validate_date_range', return_value=(True, '')
+            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-07-01', '2025-08-01')
 
@@ -1044,7 +1007,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'must be equal to or no later than the current date' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_past_end_date(self, mock_datetime):
         """Test validation fails when end date is not in the future."""
         # Create a real datetime object for the current date
@@ -1056,7 +1019,7 @@ class TestValidateForecastDateRange:
 
         # Test with end date in the past
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.validate_date_range', return_value=(True, '')
+            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-05-01', '2025-05-31')
 
@@ -1064,7 +1027,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'must be in the future' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_daily_too_long(self, mock_datetime):
         """Test validation fails when daily forecast range is too long."""
         # Create a real datetime object for the current date
@@ -1076,7 +1039,7 @@ class TestValidateForecastDateRange:
 
         # Test with daily granularity and range > 93 days
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.validate_date_range', return_value=(True, '')
+            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-06-01', '2025-10-01', 'DAILY')
 
@@ -1084,7 +1047,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'DAILY granularity supports a maximum of 3 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_forecast_date_range_monthly_too_long(self, mock_datetime):
         """Test validation fails when monthly forecast range is too long."""
         # Create a real datetime object for the current date
@@ -1098,7 +1061,7 @@ class TestValidateForecastDateRange:
 
         # Test with monthly granularity and range > 12 months
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.validate_date_range', return_value=(True, '')
+            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-06-01', '2027-01-01', 'MONTHLY')
 
@@ -1137,7 +1100,7 @@ class TestValidateComparisonDateRange:
         assert not is_valid
         assert 'must be exactly one month' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_comparison_date_range_current_month_january(self, mock_datetime):
         """Test validation when current month is January (edge case for year rollback)."""
         # Mock current date to be in January 2025
@@ -1152,7 +1115,7 @@ class TestValidateComparisonDateRange:
         assert 'Current month (2025-01) is not complete yet' in error
         assert '2024-12-01' in error  # Should suggest December 2024
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.datetime')
+    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
     def test_validate_comparison_date_range_december_to_january_transition(self, mock_datetime):
         """Test validation for December to January transition (year boundary)."""
         # Mock current date to be in February 2025

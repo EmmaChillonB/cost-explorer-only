@@ -31,7 +31,13 @@ from awslabs.cost_explorer_mcp_server.metadata_handler import (
 )
 from awslabs.cost_explorer_mcp_server.utility_handler import get_today_date
 from loguru import logger
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
+from awslabs.cost_explorer_mcp_server.auth import (
+    get_active_sessions,
+    close_client_session,
+)
+from typing import Any, Dict
 
 
 # Configure Loguru logging
@@ -81,6 +87,38 @@ app.tool('get_cost_forecast')(get_cost_forecast)
 app.tool('get_cost_and_usage_comparisons')(get_cost_and_usage_comparisons)
 app.tool('get_cost_comparison_drivers')(get_cost_comparison_drivers)
 app.tool('get_cost_and_usage')(get_cost_and_usage)
+
+
+@app.tool()
+async def close_session(
+    ctx: Context,
+    client_id: str = Field(..., description='The client session ID to close'),
+) -> Dict[str, Any]:
+    """Close a specific client session and free up resources.
+    
+    Args:
+        ctx: MCP context
+        client_id: The session ID to close
+        
+    Returns:
+        Status information about the closed session
+    """
+    return close_client_session(client_id)
+
+
+@app.tool()
+async def list_active_sessions(ctx: Context) -> Dict[str, Any]:
+    """List all active Cost Explorer client sessions.
+    
+    Useful for monitoring and managing multiple concurrent clients.
+    
+    Args:
+        ctx: MCP context
+        
+    Returns:
+        Dictionary with information about all active sessions
+    """
+    return get_active_sessions()
 
 
 def main():

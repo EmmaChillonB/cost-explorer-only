@@ -70,7 +70,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -112,7 +113,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UsageQuantity',
                     group_by='SERVICE',
@@ -163,7 +165,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',  # Explicitly pass this to avoid Field object
@@ -208,7 +211,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='DAILY',
                     metric='UnblendedCost',
                     group_by='SERVICE',  # Explicitly pass this to avoid Field object
@@ -259,7 +263,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     filter_expression=filter_expr,
                     metric='UnblendedCost',
@@ -311,7 +316,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     group_by=group_by,
                     metric='UnblendedCost',
@@ -351,7 +357,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UsageQuantity',
                     group_by='SERVICE',  # Explicitly pass this to avoid Field object
@@ -412,7 +419,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='DAILY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -481,8 +489,9 @@ class TestCostAndUsage:
                 # Patch pandas DataFrame to raise an exception
                 with patch('pandas.DataFrame.from_dict', side_effect=Exception('DataFrame error')):
                     result = await get_cost_and_usage(
-                        ctx,
-                        valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                         granularity='MONTHLY',
                         metric='UnblendedCost',
                         group_by='SERVICE',
@@ -504,8 +513,9 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         result = await get_cost_and_usage(
-            ctx,
-            valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
             granularity='MONTHLY',
             metric='UnblendedCost',
             group_by='SERVICE',  # Explicitly pass this to avoid Field object
@@ -527,8 +537,9 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Test with invalid granularity to trigger validation error
         result = await get_cost_and_usage(
-            ctx,
-            valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
             granularity='INVALID',
             metric='UnblendedCost',
             group_by='SERVICE',
@@ -568,7 +579,8 @@ class TestCostAndUsage:
             ):
                 await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='HOURLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -616,7 +628,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -679,7 +692,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UsageQuantity',
                     group_by='USAGE_TYPE',
@@ -731,7 +745,8 @@ class TestCostAndUsage:
             ):
                 await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UsageQuantity',
                     group_by='SERVICE',
@@ -762,7 +777,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -781,8 +797,9 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         result = await get_cost_and_usage(
-            ctx,
-            valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
             granularity='MONTHLY',
             metric='INVALID_METRIC',  # Invalid metric
             group_by='SERVICE',
@@ -803,8 +820,9 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         result = await get_cost_and_usage(
-            ctx,
-            long_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=long_date_range,
             granularity='HOURLY',  # This should fail validation for long range
             metric='UnblendedCost',
             group_by='SERVICE',
@@ -829,8 +847,9 @@ class TestCostAndUsage:
             return_value={'error': 'Invalid group_by'},
         ):
             result = await get_cost_and_usage(
-                ctx,
-                valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                 granularity='MONTHLY',
                 metric='UnblendedCost',
                 group_by='INVALID',
@@ -856,8 +875,9 @@ class TestCostAndUsage:
             return_value={'error': 'Invalid filter'},
         ):
             result = await get_cost_and_usage(
-                ctx,
-                valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                 granularity='MONTHLY',
                 metric='UnblendedCost',
                 group_by='SERVICE',
@@ -898,7 +918,8 @@ class TestCostAndUsage:
             ):
                 await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='NetUnblendedCost',
                     group_by='SERVICE',
@@ -937,7 +958,8 @@ class TestCostAndUsage:
             ):
                 await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='AmortizedCost',
                     group_by='SERVICE',
@@ -980,8 +1002,9 @@ class TestCostAndUsage:
                 # Test successful JSON serialization
                 with patch('json.dumps', return_value='{"test": "value"}'):
                     result = await get_cost_and_usage(
-                        ctx,
-                        valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                         granularity='MONTHLY',
                         metric='UnblendedCost',
                         group_by='SERVICE',
@@ -1025,8 +1048,9 @@ class TestCostAndUsage:
                 # Test JSON serialization failure
                 with patch('json.dumps', side_effect=TypeError('Cannot serialize')):
                     result = await get_cost_and_usage(
-                        ctx,
-                        valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                         granularity='MONTHLY',
                         metric='UnblendedCost',
                         group_by='SERVICE',
@@ -1071,7 +1095,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',  # Request UnblendedCost but response has BlendedCost
                     group_by='SERVICE',
@@ -1117,7 +1142,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -1159,7 +1185,8 @@ class TestCostAndUsage:
             ):
                 result = await get_cost_and_usage(
                     ctx,
-                    valid_date_range,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                     granularity='MONTHLY',
                     metric='UnblendedCost',
                     group_by='SERVICE',
@@ -1204,8 +1231,9 @@ class TestCostAndUsage:
                 # Force JSON serialization to fail, which should trigger stringify_keys
                 with patch('json.dumps', side_effect=TypeError('Cannot serialize')):
                     result = await get_cost_and_usage(
-                        ctx,
-                        valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
                         granularity='MONTHLY',
                         metric='UnblendedCost',
                         group_by='SERVICE',
@@ -1240,8 +1268,9 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         result = await get_cost_and_usage(
-            ctx,
-            valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
             granularity='MONTHLY',
             metric='UnblendedCost',
             group_by='SERVICE',  # String instead of dict
@@ -1269,8 +1298,9 @@ class TestCostAndUsage:
         mock_get_client.side_effect = Exception('Client creation failed')
 
         result = await get_cost_and_usage(
-            ctx,
-            valid_date_range,
+                    ctx,
+                    client_id="test-client",
+                    date_range=valid_date_range,
             granularity='MONTHLY',
             metric='UnblendedCost',
             group_by='SERVICE',

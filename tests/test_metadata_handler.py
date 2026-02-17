@@ -123,7 +123,7 @@ class TestImplementationFunctions:
             ]
         }
 
-        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31')
+        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'values' in result
         assert 'EC2' in result['values']
@@ -138,7 +138,7 @@ class TestImplementationFunctions:
         mock_get_client.return_value = mock_client
         mock_client.get_dimension_values.side_effect = Exception('API Error')
 
-        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31')
+        result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'API Error' in result['error']
@@ -151,7 +151,7 @@ class TestImplementationFunctions:
         mock_get_client.return_value = mock_client
         mock_client.get_tags.return_value = {'Tags': ['Production', 'Development', 'Testing']}
 
-        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31')
+        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'values' in result
         assert 'Production' in result['values']
@@ -166,7 +166,7 @@ class TestImplementationFunctions:
         mock_get_client.return_value = mock_client
         mock_client.get_tags.side_effect = Exception('API Error')
 
-        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31')
+        result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31', 'test-client')
 
         assert 'error' in result
         assert 'API Error' in result['error']
