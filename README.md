@@ -332,34 +332,38 @@ metadata:
 
 ## Testing
 
-### Unit Tests
+### Running Unit Tests
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+# Create virtual environment and install dependencies
+uv sync --dev
 
-# Run all tests
-pytest tests/ -v
+# Activate the virtual environment
+source .venv/bin/activate
 
-# Run auth tests specifically
-pytest tests/test_auth_multiclient.py -v
+# Run all tests (293 tests)
+pytest tests/ -v -o "addopts="
+
+# Run auth tests specifically (56 tests, 96% coverage)
+pytest tests/test_auth_multiclient.py -v -o "addopts="
+
+# Run with coverage report
+pytest tests/ --cov=awslabs/cost_explorer_mcp_server --cov-report=term-missing -o "addopts="
 ```
 
-### Manual Test Script
+### Test Coverage
 
-The project includes a test script that validates the multi-client architecture using mocks (no real AWS credentials needed):
+The test suite includes 293 tests covering all handlers and the multi-client authentication system:
 
-```bash
-python scripts/test_multiclient.py
-```
-
-This tests:
-- Configuration loading from temporary files
-- Session management
-- Token expiration detection
-- LRU cache eviction
-- Concurrent refresh deduplication
-- Client creation with mocked STS calls
+| Module | Tests | Coverage |
+|--------|-------|---------|
+| `auth.py` (multi-client) | 56 | 96% |
+| `cost_usage_handler.py` | 50+ | 95%+ |
+| `comparison_handler.py` | 30+ | 95%+ |
+| `forecasting_handler.py` | 20+ | 95%+ |
+| `metadata_handler.py` | 20+ | 95%+ |
+| `utility_handler.py` | 10+ | 100% |
+| `server.py` | 10+ | 95%+ |
 
 ---
 

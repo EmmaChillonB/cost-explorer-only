@@ -45,48 +45,53 @@ ENV PIP_NO_CACHE_DIR=1 \
 RUN --mount=type=cache,target=/root/.cache/uv \
     python3 -m ensurepip && \
     python3 -m pip install --require-hashes --requirement uv-requirements.txt --no-cache-dir && \
-    uv sync --python 3.13 --frozen --no-install-project --no-dev --no-editable
+    uv sync --python 3.12 --frozen --no-install-project --no-dev --no-editable
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
 COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --python 3.13 --frozen --no-dev --no-editable
+    uv sync --python 3.12 --frozen --no-dev --no-editable
 
-# Make the directory just in case it doesn't exist
-RUN mkdir -p /root/.local
-
+# Final runtime image
 FROM public.ecr.aws/amazonlinux/amazonlinux@sha256:50a58a006d3381e38160fc5bb4bbefa68b74fcd70dde798f68667aac24312f20
 
-# Place executables in the environment at the front of the path and include other binaries
-ENV PATH="/app/.venv/bin:$PATH:/usr/sbin" \
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
-# Install other tools as needed for the MCP server
-# Add non-root user and ability to change directory into /root
+WORKDIR /app
+
+# Install procps for healthcheck (pgrep) and create non-root user
 RUN dnf install -y shadow-utils procps && \
     dnf clean all && \
     groupadd --force --system app && \
-    useradd app -g app -d /app && \
-    chmod o+x /root
+    useradd app -g app -d /app
 
 # Get the project from the uv layer
-COPY --from=uv --chown=app:app /root/.local /root/.local
 COPY --from=uv --chown=app:app /app/.venv /app/.venv
+COPY --from=uv --chown=app:app /app/awslabs /app/awslabs
+
+# Create config directory for clients.json mount
+RUN mkdir -p /config && chown app:app /config
 
 # Get healthcheck script
-COPY ./docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
+COPY --chown=app:app ./docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
+RUN chmod +x /usr/local/bin/docker-healthcheck.sh
 
 # Run as non-root
 USER app
 
-# When running the container, add --db-path and a bind mount to the host's db file
+# Healthcheck for MCP server process
 HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 CMD ["docker-healthcheck.sh"]
 
-# Environment variables for K3s/IAM Anywhere
-# These should be set when running the container, not here
-# AWS_REGION: Required (default: us-east-1)
-# AWS_ROLE_ARN: Required for assuming role
-# FASTMCP_LOG_LEVEL: Optional (default: ERROR)
+# Multi-client configuration:
+# Mount clients.json to /config/clients.json and set CLIENTS_CONFIG_PATH=/config/clients.json
+# 
+# Environment variables:
+# CLIENTS_CONFIG_PATH: Required - Path to clients.json mapping client_id -> role_arn
+# AWS_REGION: Optional (default: us-east-1)
+# FASTMCP_LOG_LEVEL: Optional (default: WARNING) - ERROR, WARNING, INFO, DEBUG
+# VALIDATE_FILTER_VALUES: Optional (default: false) - Enable $0.01 AWS validation calls
 
 ENTRYPOINT ["awslabs.cost-explorer-mcp-server"]
