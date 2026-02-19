@@ -65,8 +65,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
-# Install Python, procps for healthcheck (pgrep) and create non-root user
-RUN dnf install -y shadow-utils procps python3.12 && \
+# Install Python, procps for healthcheck (pgrep), nc for port check, and create non-root user
+RUN dnf install -y shadow-utils procps nmap-ncat python3.12 && \
     dnf clean all && \
     groupadd --force --system app && \
     useradd app -g app -d /app
@@ -96,5 +96,17 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 CMD ["do
 # AWS_REGION: Optional (default: us-east-1)
 # FASTMCP_LOG_LEVEL: Optional (default: WARNING) - ERROR, WARNING, INFO, DEBUG
 # VALIDATE_FILTER_VALUES: Optional (default: false) - Enable $0.01 AWS validation calls
+# MCP_TRANSPORT: Optional (default: sse) - Transport mode: stdio, sse, or streamable-http
+# MCP_HOST: Optional (default: 0.0.0.0 in container) - Host to bind to
+# MCP_PORT: Optional (default: 8000) - Port to listen on
+# MCP_MOUNT_PATH: Optional - Mount path for SSE/HTTP transport
+
+# Set defaults for container deployment
+ENV MCP_TRANSPORT=sse \
+    MCP_HOST=0.0.0.0 \
+    MCP_PORT=8000
+
+# Expose port 8000 for SSE/HTTP transport
+EXPOSE 8000
 
 ENTRYPOINT ["awslabs.cost-explorer-mcp-server"]

@@ -76,8 +76,17 @@ SERVER_INSTRUCTIONS = """
 - Combine related questions into a single query where possible
 """
 
+# Get host configuration from environment (0.0.0.0 for container, 127.0.0.1 for local)
+MCP_HOST = os.getenv('MCP_HOST', '127.0.0.1')
+MCP_PORT = int(os.getenv('MCP_PORT', '8000'))
+
 # Create FastMCP server with instructions
-app = FastMCP(name='Cost Explorer MCP Server', instructions=SERVER_INSTRUCTIONS)
+app = FastMCP(
+    name='Cost Explorer MCP Server',
+    instructions=SERVER_INSTRUCTIONS,
+    host=MCP_HOST,
+    port=MCP_PORT,
+)
 
 # Register all tools with the app
 app.tool('get_today_date')(get_today_date)
@@ -122,8 +131,25 @@ async def list_active_sessions(ctx: Context) -> Dict[str, Any]:
 
 
 def main():
-    """Run the MCP server with CLI argument support."""
-    app.run()
+    """Run the MCP server with CLI argument support.
+    
+    Transport can be configured via MCP_TRANSPORT environment variable:
+    - 'stdio' (default): Standard input/output communication
+    - 'sse': Server-Sent Events over HTTP (port 8000)
+    - 'streamable-http': Streamable HTTP transport (port 8000)
+    
+    For SSE/HTTP transports, the server listens on port 8000 by default.
+    Mount path can be configured via MCP_MOUNT_PATH environment variable.
+    """
+    transport = os.getenv('MCP_TRANSPORT', 'stdio')
+    mount_path = os.getenv('MCP_MOUNT_PATH', None)
+    
+    if transport not in ('stdio', 'sse', 'streamable-http'):
+        logger.warning(f"Invalid MCP_TRANSPORT '{transport}', defaulting to 'stdio'")
+        transport = 'stdio'
+    
+    logger.info(f"Starting MCP server with transport: {transport}")
+    app.run(transport=transport, mount_path=mount_path)
 
 
 if __name__ == '__main__':
