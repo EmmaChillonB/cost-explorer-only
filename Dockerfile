@@ -28,8 +28,8 @@ ENV UV_COMPILE_BYTECODE=1
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
 
-# Prefer the system python
-ENV UV_PYTHON_PREFERENCE=only-managed
+# Prefer the system python (critical for multi-stage builds)
+ENV UV_PYTHON_PREFERENCE=only-system
 
 # Run without updating the uv.lock file like running with `--frozen`
 ENV UV_FROZEN=true
@@ -41,17 +41,20 @@ COPY pyproject.toml uv.lock uv-requirements.txt ./
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# Install Python 3.12 (system python) to be used by uv
+RUN dnf install -y python3.12 && dnf clean all
+
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
     python3 -m ensurepip && \
     python3 -m pip install --require-hashes --requirement uv-requirements.txt --no-cache-dir && \
-    uv sync --python 3.12 --frozen --no-install-project --no-dev --no-editable
+    uv sync --python /usr/bin/python3.12 --frozen --no-install-project --no-dev --no-editable
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
 COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --python 3.12 --frozen --no-dev --no-editable
+    uv sync --python /usr/bin/python3.12 --frozen --no-dev --no-editable
 
 # Final runtime image
 FROM public.ecr.aws/amazonlinux/amazonlinux@sha256:50a58a006d3381e38160fc5bb4bbefa68b74fcd70dde798f68667aac24312f20
@@ -62,8 +65,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
-# Install procps for healthcheck (pgrep) and create non-root user
-RUN dnf install -y shadow-utils procps && \
+# Install Python, procps for healthcheck (pgrep) and create non-root user
+RUN dnf install -y shadow-utils procps python3.12 && \
     dnf clean all && \
     groupadd --force --system app && \
     useradd app -g app -d /app
