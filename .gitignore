@@ -43,3 +43,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# ficheros de configuración
+clients.json

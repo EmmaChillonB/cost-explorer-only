@@ -15,11 +15,13 @@
 
 SERVER="cost-explorer-mcp-server"
 
-# Check if the server process is running
-if pgrep -P 0 -a -l -x -f "/app/.venv/bin/python3? /app/.venv/bin/awslabs.$SERVER" > /dev/null; then
-  echo -n "$SERVER is running";
-  exit 0;
-fi;
+# Check if the MCP server process is running
+# In a container, the entrypoint runs as PID 1
+if pgrep -f "awslabs.$SERVER" > /dev/null; then
+  echo "$SERVER is running"
+  exit 0
+fi
 
 # Unhealthy
-exit 1;
+echo "$SERVER is not running"
+exit 1

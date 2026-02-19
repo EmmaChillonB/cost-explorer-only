@@ -1,187 +1,375 @@
 # Cost Explorer MCP Server
 
-MCP server for analyzing AWS costs and usage data through the AWS Cost Explorer API.
+MCP server for analyzing AWS costs and usage data through the AWS Cost Explorer API, designed for **Kubernetes deployments using IAM Roles Anywhere** and **multi-client (multi-account) role assumption**.
+
+## Table of Contents
+
+- [Features](#features)
+- [Authentication Architecture](#authentication-architecture)
+- [Configuration](#configuration)
+- [Validation and Cost Optimization](#validation-and-cost-optimization)
+- [Available Tools](#available-tools)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Usage Examples](#usage-examples)
+- [License](#license)
+
+---
 
 ## Features
 
-### Analyze AWS costs and usage data
-
-- Get detailed breakdown of your AWS costs by service, region, and other dimensions
-- Understand how costs are distributed across various services
+### Analyze AWS costs and usage
+- Detailed breakdown of costs by service, region, and other dimensions
 - Query historical cost data for specific time periods
-- Filter costs by various dimensions, tags, and cost categories
-
+- Filter costs by dimensions, tags, and cost categories
 
 ### Compare costs between time periods
-
-- **NEW AWS Feature**: Leverage AWS Cost Explorer's new [Cost Comparison feature](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-cost-comparison.html)
+- Leverage AWS Cost Explorer's [Cost Comparison feature](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-cost-comparison.html)
 - Compare costs between two time periods to identify changes and trends
-- Analyze cost drivers to understand what caused cost increases or decreases
-- Get detailed insights into the top 10 most significant cost change drivers automatically
-- Identify specific usage types, discount changes, and infrastructure changes affecting costs
+- Analyze cost drivers (top 10) to understand what caused increases/decreases
 
 ### Forecast future costs
-
 - Generate cost forecasts based on historical usage patterns
-- Get predictions with confidence intervals (80% or 95%)
-- Support for daily and monthly forecast granularity
-- Plan budgets and anticipate future AWS spending
+- Predictions with confidence intervals (80% or 95%)
+- Daily and monthly forecast granularity
 
-### Query cost data with natural language
+### Multi-client architecture
+- Support for multiple AWS accounts with different IAM roles
+- Thread-safe session management with LRU cache (max 1000 sessions)
+- Automatic token refresh 5 minutes before expiration
+- Concurrent request deduplication (only one STS call per client)
 
-- Ask questions about your AWS costs in plain English
-- Get instant answers about your AWS spending patterns
-- Retrieve historical cost data with simple queries
+---
 
+## Authentication Architecture
 
-## Prerequisites
+### How it works
 
-1. Install `uv` from [Astral](https://docs.astral.sh/uv/getting-started/installation/) or the [GitHub README](https://github.com/astral-sh/uv#installation)
-2. Install Python using `uv python install 3.10`
-3. Set up AWS credentials with access to AWS Cost Explorer
-   - You need an AWS account with appropriate permissions
-   - Configure AWS credentials with `aws configure` or environment variables
-   - Ensure your IAM role/user has permissions to access AWS Cost Explorer API
+This server is designed to run in **Kubernetes**, where the pod obtains **base AWS credentials via IAM Roles Anywhere**, and then **for each request**, the server assumes a client-specific IAM role (cross-account) based on `client_id`.
 
-## Installation
+**Authentication flow:**
+1. Pod gets base credentials via IAM Roles Anywhere (no AWS_PROFILE inside the container)
+2. You provide a `clients.json` mapping: `client_id -> role_arn`
+3. For each tool request:
+   - You pass `client_id`
+   - The server looks up `role_arn` in `clients.json`
+   - The server calls `sts:AssumeRole` into the client role
+   - A Cost Explorer (ce) client is created and cached until token expiration
+   - Tokens are refreshed automatically before expiration
 
-| Kiro | Cursor | VS Code |
-|:----:|:------:|:-------:|
-| [![Add to Kiro](https://kiro.dev/images/add-to-kiro.svg)](https://kiro.dev/launch/mcp/add?name=awslabs.cost-explorer-mcp-server&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22awslabs.cost-explorer-mcp-server%40latest%22%5D%2C%22env%22%3A%7B%22AWS_PROFILE%22%3A%22your-aws-profile%22%2C%22AWS_REGION%22%3A%22us-east-1%22%2C%22FASTMCP_LOG_LEVEL%22%3A%22ERROR%22%7D%7D) | [![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en/install-mcp?name=awslabs.cost-explorer-mcp-server&config=eyJjb21tYW5kIjoidXZ4IGF3c2xhYnMuY29zdC1leHBsb3Jlci1tY3Atc2VydmVyQGxhdGVzdCIsImVudiI6eyJBV1NfUFJPRklMRSI6InlvdXItYXdzLXByb2ZpbGUiLCJBV1NfUkVHSU9OIjoidXMtZWFzdC0xIiwiRkFTVE1DUF9MT0dfTEVWRUwiOiJFUlJPUiJ9LCJkaXNhYmxlZCI6ZmFsc2UsImF1dG9BcHByb3ZlIjpbXX0%3D) | [![Install on VS Code](https://img.shields.io/badge/Install_on-VS_Code-FF9900?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=Cost%20Explorer%20MCP%20Server&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22awslabs.cost-explorer-mcp-server%40latest%22%5D%2C%22env%22%3A%7B%22AWS_PROFILE%22%3A%22your-aws-profile%22%2C%22AWS_REGION%22%3A%22us-east-1%22%2C%22FASTMCP_LOG_LEVEL%22%3A%22ERROR%22%7D%2C%22disabled%22%3Afalse%2C%22autoApprove%22%3A%5B%5D%7D) |
+### Prerequisites
 
-Example configuration for Kiro (`~/.kiro/settings/mcp.json`):
+- **IAM Roles Anywhere** configured in your AWS account
+- **Kubernetes** with Roles Anywhere credentials mounted (implementation-specific)
+- **Base role (runner role)**: the role the pod runs as, with permissions to assume client roles
+  - `sts:AssumeRole` on each client role ARN
+- **Trust policy** of each client role: allows assumption by the base role (with `ExternalId` if required)
 
-```json
-{
-  "mcpServers": {
-    "awslabs.cost-explorer-mcp-server": {
-      "command": "uvx",
-      "args": ["awslabs.cost-explorer-mcp-server@latest"],
-      "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR",
-        "AWS_PROFILE": "your-aws-profile"
-      },
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
-```
-### Windows Installation
+### Concurrency handling
 
-For Windows users, the MCP server configuration format is slightly different:
-
-```json
-{
-  "mcpServers": {
-    "awslabs.cost-explorer-mcp-server": {
-      "disabled": false,
-      "timeout": 60,
-      "type": "stdio",
-      "command": "uv",
-      "args": [
-        "tool",
-        "run",
-        "--from",
-        "awslabs.cost-explorer-mcp-server@latest",
-        "awslabs.cost-explorer-mcp-server.exe"
-      ],
-      "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR",
-        "AWS_PROFILE": "your-aws-profile",
-        "AWS_REGION": "us-east-1"
-      }
-    }
-  }
-}
-```
-
-
-or docker after a successful `docker build -t awslabs/cost-explorer-mcp-server .`:
-
-```file
-# fictitious `.env` file with AWS temporary credentials
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_SESSION_TOKEN=
-```
-
-```json
-{
-  "mcpServers": {
-    "awslabs.cost-explorer-mcp-server": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env",
-        "FASTMCP_LOG_LEVEL=ERROR",
-        "--env-file",
-        "/full/path/to/file/above/.env",
-        "awslabs/cost-explorer-mcp-server:latest"
-      ],
-      "env": {},
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
-```
-
-NOTE: Your credentials will need to be kept refreshed from your host
-
-### AWS Authentication
-
-The MCP server uses the AWS profile specified in the `AWS_PROFILE` environment variable. If not provided, it defaults to the "default" profile in your AWS configuration file.
-
-```json
-"env": {
-  "AWS_PROFILE": "your-aws-profile"
-}
-```
-
-Make sure the AWS profile has permissions to access the AWS Cost Explorer API. The MCP server creates a boto3 session using the specified profile to authenticate with AWS services. Your AWS IAM credentials remain on your local machine and are strictly used for accessing AWS services.
-
-## Cost Considerations
-
-**Important:** AWS Cost Explorer API incurs charges on a per-request basis. Each API call made by this MCP server will result in charges to your AWS account.
-
-- **Cost Explorer API Pricing:** The AWS Cost Explorer API lets you directly access the interactive, ad-hoc query engine that powers AWS Cost Explorer. Each request will incur a cost of $0.01.
-- Each tool invocation that queries Cost Explorer (get_dimension_values, get_tag_values, get_cost_and_usage) will generate at least one billable API request
-- Complex queries with multiple filters or large date ranges may result in multiple API calls
-
-For current pricing information, please refer to the [AWS Cost Explorer Pricing page](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/pricing/).
-
-
-## Security Considerations
+The server handles concurrent requests safely:
+- **Thread-safe caches**: All client caches use locks to prevent race conditions
+- **Refresh deduplication**: If multiple requests need to refresh the same client token, only one STS call is made
+- **LRU eviction**: Maximum 1000 cached sessions with automatic eviction of least recently used
 
 ### Required IAM Permissions
-The following IAM permissions are required for this MCP server:
-- ce:GetCostAndUsage
-- ce:GetDimensionValues
-- ce:GetTags
-- ce:GetCostForecast
-- ce:GetCostAndUsageComparisons
-- ce:GetCostComparisonDrivers
 
+**Client role** (the role being assumed):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetDimensionValues",
+        "ce:GetTags",
+        "ce:GetCostForecast",
+        "ce:GetCostAndUsageComparisons",
+        "ce:GetCostComparisonDrivers"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
+**Base role** (the pod's identity):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": [
+        "arn:aws:iam::111111111111:role/CostExplorerRole",
+        "arn:aws:iam::222222222222:role/CostExplorerRole"
+      ]
+    }
+  ]
+}
+```
+
+**Trust policy** on each client role:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::BASE_ACCOUNT:role/BaseRole"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+---
+
+## Configuration
+
+### Multi-Client Configuration (clients.json)
+
+Create a `clients.json` file and mount it into the container. The server uses `client_id` to look up the role to assume.
+
+#### Example `clients.json`
+```json
+{
+  "clients": {
+    "client-finance": {
+      "role_arn": "arn:aws:iam::111111111111:role/team-1-cost-explorer",
+      "description": "team 1 access"
+    },
+    "client-engineering": {
+      "role_arn": "arn:aws:iam::222222222222:role/team-2-cost-explorer",
+      "description": "team 2 access"
+    }
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CLIENTS_CONFIG_PATH` | Yes | - | Path to `clients.json` inside the container |
+| `AWS_REGION` | No | `us-east-1` | Default AWS region |
+| `FASTMCP_LOG_LEVEL` | No | `WARNING` | Logging level (ERROR, WARNING, INFO, DEBUG) |
+| `VALIDATE_FILTER_VALUES` | No | `false` | Enable AWS API calls for filter validation (see below) |
+
+---
 
 ## Available Tools
 
 The Cost Explorer MCP Server provides the following tools:
 
-1. `get_today_date` - Get the current date and month to determine relevent data when answering last month.
-2. `get_dimension_values` - Get available values for a specific dimension (e.g., SERVICE, REGION)
-3. `get_tag_values` - Get available values for a specific tag key
-4. `get_cost_and_usage` - Retrieve AWS cost and usage data with filtering and grouping options
-5. `get_cost_and_usage_comparisons` - Compare costs between two time periods to identify changes and trends
-6. `get_cost_comparison_drivers` - Analyze what drove cost changes between periods (top 10 most significant drivers)
-7. `get_cost_forecast` - Generate cost forecasts based on historical usage patterns
+### Utilities
+| Tool | Description |
+|------|-----------|
+| `get_today_date` | Get the current date and month to determine relevant data |
+| `list_active_sessions` | List all active Cost Explorer client sessions (for monitoring multiple concurrent clients) |
+| `close_session` | Close a specific client session and free up resources |
 
-## Example Usage
+### Cost Queries
+| Tool | Description |
+|------|-----------|
+| `get_dimension_values` | Get available values for a specific dimension (e.g., SERVICE, REGION) |
+| `get_tag_values` | Get available values for a specific tag key |
+| `get_cost_and_usage` | Retrieve AWS cost and usage data with filtering and grouping options |
 
-Here are some examples of how to use the Cost Explorer MCP Server through natural language queries:
+### Analysis and Comparison
+| Tool | Description |
+|------|-----------|
+| `get_cost_and_usage_comparisons` | Compare costs between two time periods to identify changes and trends |
+| `get_cost_comparison_drivers` | Analyze what drove cost changes between periods (top 10 most significant drivers) |
+| `get_cost_forecast` | Generate cost forecasts based on historical usage patterns |
+
+### Multi-Client Usage
+
+**Important**: Always pass `client_id` when calling a tool. The server will assume the corresponding role from `clients.json`.
+
+#### Example: `get_cost_and_usage`
+```json
+{
+  "client_id": "client-finance",
+  "date_range": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-31"
+  },
+  "granularity": "MONTHLY",
+  "group_by": "SERVICE",
+  "metric": "UnblendedCost"
+}
+```
+
+---
+
+## Validation and Cost Optimization
+
+### How validation works
+
+Each Cost Explorer API call costs **$0.01**. The server performs validation on requests before sending them to AWS.
+
+**Local validations (always performed, no AWS calls):**
+- Date format (YYYY-MM-DD)
+- Date range logic (start before end)
+- Granularity-specific constraints (e.g., HOURLY max 14 days)
+- Dimension key validation (SERVICE, REGION, etc. are valid keys)
+- Filter structure validation (And, Or, Not operators)
+- Group by validation
+
+**AWS validations (optional, disabled by default):**
+- Validate that dimension values exist (e.g., "Amazon EC2" is a valid SERVICE value)
+- Validate that tag values exist
+
+### Controlling validation
+
+By default, AWS validations are **disabled** to reduce costs. If a user passes an invalid value, AWS will return an error which the server will relay.
+
+To enable AWS validations:
+```bash
+export VALIDATE_FILTER_VALUES=true
+```
+
+**Recommendation**: Keep disabled (`false`) in production. Invalid values will result in AWS errors, which is acceptable and saves money.
+
+### Cost estimation
+
+| Operation | API Calls | Cost |
+|-----------|-----------|------|
+| Simple cost query | 1 | $0.01 |
+| Cost query with filter (validation disabled) | 1 | $0.01 |
+| Cost query with filter (validation enabled) | 2+ | $0.02+ |
+| Cost comparison | 2 | $0.02 |
+| Cost forecast | 1 | $0.01 |
+
+---
+
+## Deployment
+
+### Docker Build
+
+```bash
+docker build -t cost-explorer-mcp:latest .
+```
+
+### Docker Run (local testing with AWS credentials)
+
+```bash
+docker run -d \
+  -e AWS_REGION=us-east-1 \
+  -e CLIENTS_CONFIG_PATH=/config/clients.json \
+  -e FASTMCP_LOG_LEVEL=INFO \
+  -v $(pwd)/clients.json:/config/clients.json:ro \
+  -v ~/.aws:/root/.aws:ro \
+  cost-explorer-mcp:latest
+```
+
+### K3s with IAM Roles Anywhere
+
+For K3s with IAM Roles Anywhere, mount the credentials:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cost-explorer-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cost-explorer-mcp
+  template:
+    metadata:
+      labels:
+        app: cost-explorer-mcp
+    spec:
+      containers:
+      - name: cost-explorer
+        image: cost-explorer-mcp:latest
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: CLIENTS_CONFIG_PATH
+          value: "/config/clients.json"
+        - name: VALIDATE_FILTER_VALUES
+          value: "false"
+        volumeMounts:
+        - name: clients-config
+          mountPath: /config
+          readOnly: true
+        - name: iam-anywhere-creds
+          mountPath: /var/run/aws
+          readOnly: true
+      volumes:
+      - name: clients-config
+        configMap:
+          name: cost-explorer-clients
+      - name: iam-anywhere-creds
+        hostPath:
+          path: /var/run/aws
+          type: Directory
+```
+
+### EKS with IRSA
+
+For EKS, use IAM Roles for Service Accounts (IRSA):
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cost-explorer-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/CostExplorerBaseRole
+```
+
+---
+
+## Testing
+
+### Running Unit Tests
+
+```bash
+# Create virtual environment and install dependencies
+uv sync --dev
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Run all tests (293 tests)
+pytest tests/ -v -o "addopts="
+
+# Run auth tests specifically (56 tests, 96% coverage)
+pytest tests/test_auth_multiclient.py -v -o "addopts="
+
+# Run with coverage report
+pytest tests/ --cov=awslabs/cost_explorer_mcp_server --cov-report=term-missing -o "addopts="
+```
+
+### Test Coverage
+
+The test suite includes 293 tests covering all handlers and the multi-client authentication system:
+
+| Module | Tests | Coverage |
+|--------|-------|---------|
+| `auth.py` (multi-client) | 56 | 96% |
+| `cost_usage_handler.py` | 50+ | 95%+ |
+| `comparison_handler.py` | 30+ | 95%+ |
+| `forecasting_handler.py` | 20+ | 95%+ |
+| `metadata_handler.py` | 20+ | 95%+ |
+| `utility_handler.py` | 10+ | 100% |
+| `server.py` | 10+ | 95%+ |
+
+---
+
+## Usage Examples
+
+Here are some examples of how to use the Cost Explorer MCP Server with natural language queries:
 
 ### Cost Analysis Examples
 
@@ -209,6 +397,8 @@ Forecast my AWS costs for next month
 Predict my EC2 spending for the next quarter
 What will my total AWS bill be for the rest of 2025?
 ```
+
+---
 
 ## License
 

@@ -36,7 +36,13 @@ logger.add(sys.stderr, level=os.getenv('FASTMCP_LOG_LEVEL', 'WARNING'))
 
 
 async def get_dimension_values(
-    ctx: Context, date_range: DateRange, dimension: DimensionKey
+    ctx: Context,
+    date_range: DateRange,
+    dimension: DimensionKey,
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    )
 ) -> Dict[str, Any]:
     """Retrieve available dimension values for AWS Cost Explorer.
 
@@ -46,6 +52,7 @@ async def get_dimension_values(
 
     Args:
         ctx: MCP context
+        client_id: Client identifier for session management
         date_range: The billing period start and end dates in YYYY-MM-DD format
         dimension: The dimension key to retrieve values for (e.g., SERVICE, REGION, LINKED_ACCOUNT)
 
@@ -54,7 +61,7 @@ async def get_dimension_values(
     """
     try:
         response = get_available_dimension_values(
-            dimension.dimension_key, date_range.start_date, date_range.end_date
+            dimension.dimension_key, date_range.start_date, date_range.end_date, client_id
         )
         return response
     except Exception as e:
@@ -66,6 +73,10 @@ async def get_tag_values(
     ctx: Context,
     date_range: DateRange,
     tag_key: str = Field(..., description='The tag key to retrieve values for'),
+    client_id: str = Field(
+        ...,
+        description="Client identifier to use for this request. Must exist in clients.json configuration."
+    )
 ) -> Dict[str, Any]:
     """Retrieve available tag values for AWS Cost Explorer.
 
@@ -74,6 +85,7 @@ async def get_tag_values(
 
     Args:
         ctx: MCP context
+        client_id: Client identifier for session management
         date_range: The billing period start and end dates in YYYY-MM-DD format
         tag_key: The tag key to retrieve values for
 
@@ -81,7 +93,9 @@ async def get_tag_values(
         Dictionary containing the tag key and list of available values
     """
     try:
-        response = get_available_tag_values(tag_key, date_range.start_date, date_range.end_date)
+        response = get_available_tag_values(
+            tag_key, date_range.start_date, date_range.end_date, client_id
+        )
         return response
     except Exception as e:
         logger.error(f'Error getting tag values for {tag_key}: {e}')
