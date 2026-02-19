@@ -160,6 +160,10 @@ Create a `clients.json` file and mount it into the container. The server uses `c
 | `AWS_REGION` | No | `us-east-1` | Default AWS region |
 | `FASTMCP_LOG_LEVEL` | No | `WARNING` | Logging level (ERROR, WARNING, INFO, DEBUG) |
 | `VALIDATE_FILTER_VALUES` | No | `false` | Enable AWS API calls for filter validation (see below) |
+| `MCP_TRANSPORT` | No | `sse` (container) / `stdio` (local) | Transport mode: `stdio`, `sse`, or `streamable-http` |
+| `MCP_HOST` | No | `0.0.0.0` (container) / `127.0.0.1` (local) | Host to bind for SSE/HTTP transports |
+| `MCP_PORT` | No | `8000` | Port to listen on for SSE/HTTP transports |
+| `MCP_MOUNT_PATH` | No | - | Optional mount path for SSE/HTTP transport |
 
 ---
 
@@ -251,22 +255,67 @@ export VALIDATE_FILTER_VALUES=true
 
 ## Deployment
 
+### Transport Modes
+
+The server supports three transport modes:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `stdio` | Standard input/output | Local development, CLI tools |
+| `sse` | Server-Sent Events over HTTP | **Default for containers**, web clients, MCP Inspector |
+| `streamable-http` | Streamable HTTP transport | Alternative HTTP transport |
+
+For container deployments, the server defaults to SSE mode listening on port 8000.
+
 ### Docker Build
 
 ```bash
 docker build -t cost-explorer-mcp:latest .
 ```
 
-### Docker Run (local testing with AWS credentials)
+### Docker Run (SSE mode - recommended for containers)
 
 ```bash
 docker run -d \
-  -e AWS_REGION=us-east-1 \
+  -p 8000:8000 \
   -e CLIENTS_CONFIG_PATH=/config/clients.json \
+  -e AWS_PROFILE=your-base-profile \
+  -e AWS_SHARED_CREDENTIALS_FILE=/home/app/.aws/credentials \
+  -e AWS_CONFIG_FILE=/home/app/.aws/config \
   -e FASTMCP_LOG_LEVEL=INFO \
   -v $(pwd)/clients.json:/config/clients.json:ro \
-  -v ~/.aws:/root/.aws:ro \
+  -v ~/.aws:/home/app/.aws:ro \
   cost-explorer-mcp:latest
+```
+
+The server will be available at `http://localhost:8000/sse`.
+
+### Docker Run (stdio mode - for local testing)
+
+```bash
+docker run -it --rm \
+  -e MCP_TRANSPORT=stdio \
+  -e CLIENTS_CONFIG_PATH=/config/clients.json \
+  -e AWS_PROFILE=your-base-profile \
+  -e AWS_SHARED_CREDENTIALS_FILE=/home/app/.aws/credentials \
+  -e AWS_CONFIG_FILE=/home/app/.aws/config \
+  -v $(pwd)/clients.json:/config/clients.json:ro \
+  -v ~/.aws:/home/app/.aws:ro \
+  cost-explorer-mcp:latest
+```
+
+### Testing SSE Connection
+
+Using the MCP Inspector:
+```bash
+npx @modelcontextprotocol/inspector
+```
+Then select **SSE** transport and connect to `http://localhost:8000/sse`.
+
+Using curl:
+```bash
+# Should return the session endpoint
+curl -N http://localhost:8000/sse
 ```
 
 ### K3s with IAM Roles Anywhere
@@ -291,6 +340,9 @@ spec:
       containers:
       - name: cost-explorer
         image: cost-explorer-mcp:latest
+        ports:
+        - containerPort: 8000
+          name: http
         env:
         - name: AWS_REGION
           value: "us-east-1"
@@ -298,6 +350,8 @@ spec:
           value: "/config/clients.json"
         - name: VALIDATE_FILTER_VALUES
           value: "false"
+        - name: MCP_TRANSPORT
+          value: "sse"
         volumeMounts:
         - name: clients-config
           mountPath: /config
@@ -305,6 +359,17 @@ spec:
         - name: iam-anywhere-creds
           mountPath: /var/run/aws
           readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/docker-healthcheck.sh
+          initialDelaySeconds: 10
+          periodSeconds: 60
+        readinessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
       volumes:
       - name: clients-config
         configMap:
@@ -313,6 +378,18 @@ spec:
         hostPath:
           path: /var/run/aws
           type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cost-explorer-mcp
+spec:
+  selector:
+    app: cost-explorer-mcp
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
 ```
 
 ### EKS with IRSA

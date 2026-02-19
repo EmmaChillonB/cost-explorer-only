@@ -16,16 +16,46 @@
 
 from awslabs.cost_explorer_mcp_server.server import main
 from unittest.mock import patch
+import os
 
 
 class TestServer:
     """Test cases for server functionality."""
 
     @patch('awslabs.cost_explorer_mcp_server.server.app')
-    def test_main_function(self, mock_app):
-        """Test the main function calls app.run()."""
+    @patch.dict('os.environ', {'MCP_TRANSPORT': 'stdio'}, clear=False)
+    def test_main_function_stdio(self, mock_app):
+        """Test the main function calls app.run() with stdio transport."""
         main()
-        mock_app.run.assert_called_once()
+        mock_app.run.assert_called_once_with(transport='stdio', mount_path=None)
+
+    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch.dict('os.environ', {'MCP_TRANSPORT': 'sse'}, clear=False)
+    def test_main_function_sse(self, mock_app):
+        """Test the main function calls app.run() with sse transport."""
+        main()
+        mock_app.run.assert_called_once_with(transport='sse', mount_path=None)
+
+    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch.dict('os.environ', {'MCP_TRANSPORT': 'streamable-http'}, clear=False)
+    def test_main_function_streamable_http(self, mock_app):
+        """Test the main function calls app.run() with streamable-http transport."""
+        main()
+        mock_app.run.assert_called_once_with(transport='streamable-http', mount_path=None)
+
+    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch.dict('os.environ', {'MCP_TRANSPORT': 'invalid'}, clear=False)
+    def test_main_function_invalid_transport_defaults_to_stdio(self, mock_app):
+        """Test the main function defaults to stdio for invalid transport."""
+        main()
+        mock_app.run.assert_called_once_with(transport='stdio', mount_path=None)
+
+    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch.dict('os.environ', {'MCP_TRANSPORT': 'sse', 'MCP_MOUNT_PATH': '/mcp'}, clear=False)
+    def test_main_function_with_mount_path(self, mock_app):
+        """Test the main function passes mount_path correctly."""
+        main()
+        mock_app.run.assert_called_once_with(transport='sse', mount_path='/mcp')
 
     def test_main_block_coverage(self):
         """Test coverage of the main block."""
