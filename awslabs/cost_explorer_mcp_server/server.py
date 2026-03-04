@@ -30,6 +30,25 @@ from awslabs.cost_explorer_mcp_server.metadata_handler import (
     get_tag_values,
 )
 from awslabs.cost_explorer_mcp_server.utility_handler import get_today_date
+from awslabs.cost_explorer_mcp_server.inventory import (
+    describe_ec2_instances,
+    list_ec2_regions_with_instances,
+    describe_ebs_volumes,
+    describe_ebs_snapshots,
+    describe_rds_instances,
+    describe_load_balancers,
+    describe_nat_gateways,
+    describe_elastic_ips,
+    list_s3_buckets,
+)
+from awslabs.cost_explorer_mcp_server.utilization import (
+    get_ec2_utilization,
+    get_rds_utilization,
+    get_ebs_utilization,
+    get_elb_utilization,
+    get_nat_gateway_utilization,
+    get_multi_resource_utilization,
+)
 from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 from pydantic import Field
@@ -96,6 +115,25 @@ app.tool('get_cost_forecast')(get_cost_forecast)
 app.tool('get_cost_and_usage_comparisons')(get_cost_and_usage_comparisons)
 app.tool('get_cost_comparison_drivers')(get_cost_comparison_drivers)
 app.tool('get_cost_and_usage')(get_cost_and_usage)
+
+# Register inventory tools
+app.tool('describe_ec2_instances')(describe_ec2_instances)
+app.tool('list_ec2_regions_with_instances')(list_ec2_regions_with_instances)
+app.tool('describe_ebs_volumes')(describe_ebs_volumes)
+app.tool('describe_ebs_snapshots')(describe_ebs_snapshots)
+app.tool('describe_rds_instances')(describe_rds_instances)
+app.tool('describe_load_balancers')(describe_load_balancers)
+app.tool('describe_nat_gateways')(describe_nat_gateways)
+app.tool('describe_elastic_ips')(describe_elastic_ips)
+app.tool('list_s3_buckets')(list_s3_buckets)
+
+# Register utilization tools
+app.tool('get_ec2_utilization')(get_ec2_utilization)
+app.tool('get_rds_utilization')(get_rds_utilization)
+app.tool('get_ebs_utilization')(get_ebs_utilization)
+app.tool('get_elb_utilization')(get_elb_utilization)
+app.tool('get_nat_gateway_utilization')(get_nat_gateway_utilization)
+app.tool('get_multi_resource_utilization')(get_multi_resource_utilization)
 
 
 @app.tool()
