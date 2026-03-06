@@ -59,8 +59,11 @@ async def get_multi_resource_utilization(
     EC2 instances and RDS databases in a region.
     """
     try:
+        # Resolve region once at the start for consistency
+        resolved_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
+        
         result = {
-            'region': region or os.environ.get('AWS_REGION', 'eu-west-1'),
+            'region': resolved_region,
             'days_back': days_back,
             'ec2': {},
             'rds': {},
@@ -72,7 +75,7 @@ async def get_multi_resource_utilization(
         }
         
         if include_ec2:
-            ec2_client = get_ec2_client(client_id, region)
+            ec2_client = get_ec2_client(client_id, resolved_region)
             
             filters = ec2_filters or [{'Name': 'instance-state-name', 'Values': ['running']}]
             
@@ -88,14 +91,25 @@ async def get_multi_resource_utilization(
             
             for instance_id in instances[:10]:
                 util = await get_ec2_utilization(
-                    ctx, client_id, instance_id, region, days_back
+                    ctx, client_id, instance_id, resolved_region, days_back
                 )
                 
-                summary = {
-                    'instance_id': instance_id,
-                    'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
-                    'status': util.get('assessment', {}).get('status'),
-                }
+                logger.debug(f'EC2 utilization for {instance_id}: {util}')
+                
+                # Handle error case
+                if 'error' in util:
+                    summary = {
+                        'instance_id': instance_id,
+                        'cpu_avg': None,
+                        'status': 'error',
+                        'error': util.get('error'),
+                    }
+                else:
+                    summary = {
+                        'instance_id': instance_id,
+                        'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
+                        'status': util.get('assessment', {}).get('status', 'unknown'),
+                    }
                 result['ec2']['instances'].append(summary)
                 
                 if summary.get('status') in ['underutilized', 'significantly_underutilized']:
@@ -105,7 +119,7 @@ async def get_multi_resource_utilization(
                 result['ec2']['note'] = f'Showing first 10 of {len(instances)} instances'
         
         if include_rds:
-            rds_client = get_rds_client(client_id, region)
+            rds_client = get_rds_client(client_id, resolved_region)
             
             db_instances = []
             paginator = rds_client.get_paginator('describe_db_instances')
@@ -119,14 +133,25 @@ async def get_multi_resource_utilization(
             
             for db_id in db_instances[:10]:
                 util = await get_rds_utilization(
-                    ctx, client_id, db_id, region, days_back
+                    ctx, client_id, db_id, resolved_region, days_back
                 )
                 
-                summary = {
-                    'db_instance_identifier': db_id,
-                    'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
-                    'status': util.get('assessment', {}).get('status'),
-                }
+                logger.debug(f'RDS utilization for {db_id}: {util}')
+                
+                # Handle error case
+                if 'error' in util:
+                    summary = {
+                        'db_instance_identifier': db_id,
+                        'cpu_avg': None,
+                        'status': 'error',
+                        'error': util.get('error'),
+                    }
+                else:
+                    summary = {
+                        'db_instance_identifier': db_id,
+                        'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
+                        'status': util.get('assessment', {}).get('status', 'unknown'),
+                    }
                 result['rds']['instances'].append(summary)
                 
                 if summary.get('status') == 'underutilized':

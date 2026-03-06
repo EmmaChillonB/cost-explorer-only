@@ -15,7 +15,7 @@
 """Tests for cost_usage_handler module."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.cost_usage_handler import get_cost_and_usage
+from awslabs.cost_explorer_mcp_server.cost_explorer.usage import get_cost_and_usage
 from awslabs.cost_explorer_mcp_server.models import DateRange
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +30,7 @@ def valid_date_range():
 def mock_ce_client():
     """Mock Cost Explorer client."""
     with patch(
-        'awslabs.cost_explorer_mcp_server.cost_usage_handler.get_cost_explorer_client'
+        'awslabs.cost_explorer_mcp_server.cost_explorer.usage.get_cost_explorer_client'
     ) as mock:
         client = MagicMock()
         mock.return_value = client
@@ -61,11 +61,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -104,11 +104,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -156,11 +156,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -202,11 +202,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -254,11 +254,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value=filter_expr,
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -307,11 +307,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
             return_value=group_by,
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -348,11 +348,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -410,11 +410,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -479,11 +479,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 # Patch pandas DataFrame to raise an exception
@@ -570,11 +570,11 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 await get_cost_and_usage(
@@ -619,11 +619,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -683,11 +683,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -736,11 +736,11 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 await get_cost_and_usage(
@@ -768,11 +768,11 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -843,7 +843,7 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch validation to return error
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
             return_value={'error': 'Invalid group_by'},
         ):
             result = await get_cost_and_usage(
@@ -871,7 +871,7 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch validation to return error
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={'error': 'Invalid filter'},
         ):
             result = await get_cost_and_usage(
@@ -909,11 +909,11 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 await get_cost_and_usage(
@@ -949,11 +949,11 @@ class TestCostAndUsage:
 
         ctx = MagicMock()
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 await get_cost_and_usage(
@@ -992,11 +992,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 # Test successful JSON serialization
@@ -1038,11 +1038,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 # Test JSON serialization failure
@@ -1086,11 +1086,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -1133,11 +1133,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -1176,11 +1176,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 result = await get_cost_and_usage(
@@ -1221,11 +1221,11 @@ class TestCostAndUsage:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.cost_usage_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.usage.validate_group_by',
                 return_value={},
             ):
                 # Force JSON serialization to fail, which should trigger stringify_keys
@@ -1289,7 +1289,7 @@ class TestCostAndUsage:
         assert call_args['GroupBy'][0]['Key'] == 'SERVICE'
 
     @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.cost_usage_handler.get_cost_explorer_client')
+    @patch('awslabs.cost_explorer_mcp_server.cost_explorer.usage.get_cost_explorer_client')
     async def test_get_cost_and_usage_client_exception(self, mock_get_client, valid_date_range):
         """Test cost and usage with client creation exception."""
         ctx = MagicMock()

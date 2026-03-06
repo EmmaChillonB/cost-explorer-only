@@ -1,3 +1,8 @@
+"""Compatibility wrapper: re-export metadata functions from cost_explorer.metadata."""
+
+from .cost_explorer.metadata import get_dimension_values, get_tag_values
+
+__all__ = ['get_dimension_values', 'get_tag_values']
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

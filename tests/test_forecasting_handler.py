@@ -15,7 +15,7 @@
 """Tests for forecasting_handler module."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.forecasting_handler import get_cost_forecast
+from awslabs.cost_explorer_mcp_server.cost_explorer.forecast import get_cost_forecast
 from awslabs.cost_explorer_mcp_server.models import DateRange
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -34,7 +34,7 @@ def future_date_range():
 def mock_ce_client():
     """Mock Cost Explorer client."""
     with patch(
-        'awslabs.cost_explorer_mcp_server.forecasting_handler.get_cost_explorer_client'
+        'awslabs.cost_explorer_mcp_server.cost_explorer.forecast.get_cost_explorer_client'
     ) as mock:
         client = MagicMock()
         mock.return_value = client
@@ -155,7 +155,7 @@ class TestCostForecast:
         ctx = MagicMock()
         # Patch validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.forecasting_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.forecast.validate_expression',
             return_value=filter_expr,
         ):
             result = await get_cost_forecast(
@@ -384,7 +384,7 @@ class TestCostForecast:
 
         # Mock validate_expression to return an error
         with patch(
-            'awslabs.cost_explorer_mcp_server.forecasting_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.forecast.validate_expression',
             return_value={'error': 'Invalid filter'},
         ):
             result = await get_cost_forecast(
@@ -426,7 +426,7 @@ class TestCostForecast:
         assert 'API Error' in result['error']
 
     @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.forecasting_handler.logger')
+    @patch('awslabs.cost_explorer_mcp_server.cost_explorer.forecast.logger')
     async def test_get_cost_forecast_error_logging(
         self, mock_logger, mock_ce_client, future_date_range
     ):
@@ -457,7 +457,7 @@ class TestCostForecast:
         assert error_message in result['error']
 
     @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.forecasting_handler.get_cost_explorer_client')
+    @patch('awslabs.cost_explorer_mcp_server.cost_explorer.forecast.get_cost_explorer_client')
     async def test_get_cost_forecast_client_creation_exception(
         self, mock_get_client, future_date_range
     ):

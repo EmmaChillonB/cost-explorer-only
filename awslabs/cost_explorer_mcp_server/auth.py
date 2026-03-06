@@ -275,7 +275,7 @@ def get_cost_explorer_client(client_id: str) -> Any:
         raise RuntimeError(f'Failed to obtain client for {client_id[:8]} after waiting for refresh')
 
     try:
-        aws_region = os.environ.get('AWS_REGION', 'eu-west-1')
+        aws_region = os.environ.get('AWS_REGION', 'us-east-1')
         
         logger.debug('Using IAM Anywhere credentials')
         session = boto3.Session(region_name=aws_region)

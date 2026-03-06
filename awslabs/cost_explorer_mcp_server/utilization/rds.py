@@ -93,6 +93,13 @@ async def get_rds_utilization(
     Returns CPU, connections, storage, and I/O metrics for an RDS instance.
     """
     try:
+        # Handle FieldInfo objects when called directly (not through FastMCP)
+        from pydantic.fields import FieldInfo
+        if isinstance(days_back, FieldInfo):
+            days_back = days_back.default
+        if isinstance(period_seconds, FieldInfo):
+            period_seconds = period_seconds.default
+        
         cw = get_cloudwatch_client(client_id, region)
         start_time, end_time = calculate_time_range(days_back)
         

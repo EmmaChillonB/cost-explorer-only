@@ -1,3 +1,8 @@
+"""Compatibility wrapper: re-export `get_cost_and_usage` from cost_explorer.usage."""
+
+from .cost_explorer.usage import get_cost_and_usage
+
+__all__ = ['get_cost_and_usage']
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

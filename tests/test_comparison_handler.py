@@ -15,7 +15,7 @@
 """Tests for comparison_handler module."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.comparison_handler import (
+from awslabs.cost_explorer_mcp_server.cost_explorer.comparison import (
     get_cost_and_usage_comparisons,
     get_cost_comparison_drivers,
 )
@@ -39,7 +39,7 @@ def valid_comparison_range():
 def mock_ce_client():
     """Mock Cost Explorer client."""
     with patch(
-        'awslabs.cost_explorer_mcp_server.comparison_handler.get_cost_explorer_client'
+        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.get_cost_explorer_client'
     ) as mock:
         client = MagicMock()
         mock.return_value = client
@@ -84,15 +84,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'TAG', 'Key': 'Environment'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -177,15 +177,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -255,15 +255,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'COST_CATEGORY', 'Key': 'Department'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -322,15 +322,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -401,15 +401,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -485,15 +485,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value=filter_expr,
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -530,15 +530,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -563,7 +563,7 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch only the date validation to pass, let the metric validation run
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
             return_value=(True, ''),
         ):
             result = await get_cost_and_usage_comparisons(
@@ -633,15 +633,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -711,15 +711,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -782,15 +782,15 @@ class TestCostComparisons:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_and_usage_comparisons(
@@ -865,27 +865,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation and helper functions
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'TAG', 'Key': 'Environment'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         return_value='Production',
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             return_value={'tag': 'Environment:Production'},
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 return_value='Environment:Production',
                             ):
                                 result = await get_cost_comparison_drivers(
@@ -954,27 +954,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation and helper functions
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'COST_CATEGORY', 'Key': 'Department'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         return_value='Engineering',
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             return_value={'cost_category': 'Department:Engineering'},
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 return_value='Department:Engineering',
                             ):
                                 result = await get_cost_comparison_drivers(
@@ -1040,27 +1040,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation and helper functions
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         return_value='NewService',
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             return_value={'service': 'NewService'},
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 return_value='NewService',
                             ):
                                 result = await get_cost_comparison_drivers(
@@ -1133,27 +1133,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         return_value='EC2',
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             return_value={'service': 'EC2'},
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 return_value='EC2',
                             ):
                                 result = await get_cost_comparison_drivers(
@@ -1219,27 +1219,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation and helper functions
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         side_effect=['EC2', 'S3'],
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             side_effect=[{'service': 'EC2'}, {'service': 'S3'}],
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 side_effect=['EC2', 'S3'],
                             ):
                                 result = await get_cost_comparison_drivers(
@@ -1309,27 +1309,27 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value=filter_expr,
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         return_value='EC2',
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             return_value={'service': 'EC2'},
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 return_value='EC2',
                             ):
                                 await get_cost_comparison_drivers(
@@ -1360,15 +1360,15 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation functions to bypass validation
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     result = await get_cost_comparison_drivers(
@@ -1435,23 +1435,23 @@ class TestCostDrivers:
         ctx = MagicMock()
         # Patch the validation and helper functions
         with patch(
-            'awslabs.cost_explorer_mcp_server.comparison_handler.validate_expression',
+            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_expression',
             return_value={},
         ):
             with patch(
-                'awslabs.cost_explorer_mcp_server.comparison_handler.validate_group_by',
+                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_group_by',
                 return_value={'Type': 'DIMENSION', 'Key': 'SERVICE'},
             ):
                 with patch(
-                    'awslabs.cost_explorer_mcp_server.comparison_handler.validate_comparison_date_range',
+                    'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.validate_comparison_date_range',
                     return_value=(True, ''),
                 ):
                     with patch(
-                        'awslabs.cost_explorer_mcp_server.comparison_handler.extract_group_key_from_complex_selector',
+                        'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_group_key_from_complex_selector',
                         side_effect=['EC2', 'S3', 'RDS'],
                     ):
                         with patch(
-                            'awslabs.cost_explorer_mcp_server.comparison_handler.extract_usage_context_from_selector',
+                            'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.extract_usage_context_from_selector',
                             side_effect=[
                                 {'service': 'EC2'},
                                 {'service': 'S3'},
@@ -1459,7 +1459,7 @@ class TestCostDrivers:
                             ],
                         ):
                             with patch(
-                                'awslabs.cost_explorer_mcp_server.comparison_handler.create_detailed_group_key',
+                                'awslabs.cost_explorer_mcp_server.cost_explorer.comparison.create_detailed_group_key',
                                 side_effect=['EC2', 'S3', 'RDS'],
                             ):
                                 result = await get_cost_comparison_drivers(

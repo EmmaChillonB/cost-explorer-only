@@ -1,3 +1,8 @@
+"""Compatibility wrapper: re-export `get_cost_forecast` from cost_explorer.forecast."""
+
+from .cost_explorer.forecast import get_cost_forecast
+
+__all__ = ['get_cost_forecast']
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

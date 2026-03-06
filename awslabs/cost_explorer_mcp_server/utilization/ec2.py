@@ -98,6 +98,17 @@ async def get_ec2_utilization(
     Returns CPU, Network, and optionally Memory/Disk metrics for an EC2 instance.
     """
     try:
+        # Handle FieldInfo objects when called directly (not through FastMCP)
+        from pydantic.fields import FieldInfo
+        if isinstance(days_back, FieldInfo):
+            days_back = days_back.default
+        if isinstance(period_seconds, FieldInfo):
+            period_seconds = period_seconds.default
+        if isinstance(include_memory, FieldInfo):
+            include_memory = include_memory.default
+        if isinstance(include_disk, FieldInfo):
+            include_disk = include_disk.default
+        
         target_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
         logger.info(f'Getting EC2 utilization for {instance_id} in {target_region}, last {days_back} days')
         

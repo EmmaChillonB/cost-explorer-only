@@ -85,7 +85,7 @@ def _validate_comparison_inputs(
     if metric_for_comparison not in VALID_COST_METRICS:
         return (
             False,
-            f'Invalid metric: {metric_for_comparison}. Valid values are {", ".join(VALID_COST_METRICS)}.',
+            f'Invalid metric_for_comparison: {metric_for_comparison}. Valid values are {", ".join(VALID_COST_METRICS)}.',
             {},
         )
 
