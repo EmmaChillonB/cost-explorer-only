@@ -186,16 +186,11 @@ def main():
         logger.warning(f"Invalid MCP_TRANSPORT '{transport}', defaulting to 'stdio'")
         transport = 'stdio'
     
-    # If a mount path is provided, apply it to the FastMCP settings so both
-    # SSE and Streamable HTTP transports honor the configured mount.
     if mount_path:
-        # Update the server's mount path setting
         app.settings.mount_path = mount_path
-        # Normalize and set the streamable HTTP endpoint to include the mount path
         try:
             app.settings.streamable_http_path = app._normalize_path(mount_path, app.settings.streamable_http_path)
         except Exception:
-            # Fallback: preserve original streamable path if normalization fails
             pass
 
     logger.info(f"Starting MCP server with transport: {transport}")
