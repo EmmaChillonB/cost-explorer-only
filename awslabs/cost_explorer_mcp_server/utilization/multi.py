@@ -26,6 +26,32 @@ from .ec2 import get_ec2_utilization
 from .rds import get_rds_utilization
 
 
+def _classify_cpu(cpu_avg: Optional[float]) -> str:
+    """Classify CPU utilization into a bucket."""
+    if cpu_avg is None:
+        return 'unknown'
+    if cpu_avg < 5:
+        return 'critically_low'  # < 5%
+    if cpu_avg < 20:
+        return 'underutilized'  # 5-20%
+    if cpu_avg < 50:
+        return 'moderate'  # 20-50%
+    if cpu_avg < 80:
+        return 'healthy'  # 50-80%
+    return 'high'  # > 80%
+
+
+BUCKET_LABELS = {
+    'critically_low': '< 5% (candidate for termination/downsize)',
+    'underutilized': '5-20% (candidate for downsize)',
+    'moderate': '20-50% (review sizing)',
+    'healthy': '50-80% (well sized)',
+    'high': '> 80% (consider upsize)',
+    'unknown': 'No metrics available',
+    'error': 'Error retrieving metrics',
+}
+
+
 async def get_multi_resource_utilization(
     ctx: Context,
     client_id: str = Field(
@@ -53,120 +79,145 @@ async def get_multi_resource_utilization(
         description="Filters for EC2 instances."
     ),
 ) -> Dict[str, Any]:
-    """Get utilization metrics for multiple resources at once.
+    """Get utilization metrics for multiple resources grouped by utilization buckets.
 
-    This is a convenience tool that retrieves utilization for all running
-    EC2 instances and RDS databases in a region.
+    Instead of listing every instance individually, this tool groups resources
+    into utilization buckets (< 5%, 5-20%, 20-50%, 50-80%, > 80%) so you can
+    quickly see the distribution and focus on the problematic ones.
+
+    Each bucket contains the list of instance IDs and their CPU average.
     """
     try:
-        # Resolve region once at the start for consistency
         resolved_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
-        
+
         result = {
             'region': resolved_region,
             'days_back': days_back,
             'ec2': {},
             'rds': {},
-            'summary': {
-                'underutilized_ec2': [],
-                'underutilized_rds': [],
-                'total_recommendations': 0,
-            },
         }
-        
+
         if include_ec2:
             ec2_client = get_ec2_client(client_id, resolved_region)
-            
             filters = ec2_filters or [{'Name': 'instance-state-name', 'Values': ['running']}]
-            
-            instances = []
+
+            # Collect instance IDs and types
+            instance_info = []
             paginator = ec2_client.get_paginator('describe_instances')
             for page in paginator.paginate(Filters=filters):
                 for reservation in page.get('Reservations', []):
                     for instance in reservation.get('Instances', []):
-                        instances.append(instance.get('InstanceId'))
-            
-            result['ec2']['instance_count'] = len(instances)
-            result['ec2']['instances'] = []
-            
-            for instance_id in instances[:10]:
+                        instance_info.append({
+                            'id': instance.get('InstanceId'),
+                            'type': instance.get('InstanceType'),
+                            'lifecycle': instance.get('InstanceLifecycle', 'on-demand'),
+                        })
+
+            result['ec2']['total_instances'] = len(instance_info)
+
+            # Get utilization for each (limit to avoid timeout)
+            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
+            for info in instance_info:
                 util = await get_ec2_utilization(
-                    ctx, client_id, instance_id, resolved_region, days_back
+                    ctx, client_id, info['id'], resolved_region, days_back
                 )
-                
-                logger.debug(f'EC2 utilization for {instance_id}: {util}')
-                
-                # Handle error case
+
                 if 'error' in util:
-                    summary = {
-                        'instance_id': instance_id,
-                        'cpu_avg': None,
-                        'status': 'error',
+                    buckets['error'].append({
+                        'instance_id': info['id'],
+                        'instance_type': info['type'],
                         'error': util.get('error'),
-                    }
+                    })
                 else:
-                    summary = {
-                        'instance_id': instance_id,
-                        'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
-                        'status': util.get('assessment', {}).get('status', 'unknown'),
+                    cpu_avg = (
+                        util.get('metrics', {}).get('cpu', {})
+                        .get('summary', {}).get('overall_average')
+                    )
+                    cpu_max = (
+                        util.get('metrics', {}).get('cpu', {})
+                        .get('summary', {}).get('overall_maximum')
+                    )
+                    bucket = _classify_cpu(cpu_avg)
+                    buckets[bucket].append({
+                        'instance_id': info['id'],
+                        'instance_type': info['type'],
+                        'lifecycle': info['lifecycle'],
+                        'cpu_avg': cpu_avg,
+                        'cpu_max': cpu_max,
+                    })
+
+            # Build compact output - only include non-empty buckets
+            ec2_buckets = {}
+            for bucket_key, instances in buckets.items():
+                if instances:
+                    ec2_buckets[bucket_key] = {
+                        'label': BUCKET_LABELS[bucket_key],
+                        'count': len(instances),
+                        'instances': instances,
                     }
-                result['ec2']['instances'].append(summary)
-                
-                if summary.get('status') in ['underutilized', 'significantly_underutilized']:
-                    result['summary']['underutilized_ec2'].append(instance_id)
-            
-            if len(instances) > 10:
-                result['ec2']['note'] = f'Showing first 10 of {len(instances)} instances'
-        
+            result['ec2']['utilization_buckets'] = ec2_buckets
+
         if include_rds:
             rds_client = get_rds_client(client_id, resolved_region)
-            
-            db_instances = []
+
+            db_info = []
             paginator = rds_client.get_paginator('describe_db_instances')
             for page in paginator.paginate():
                 for db in page.get('DBInstances', []):
                     if db.get('DBInstanceStatus') == 'available':
-                        db_instances.append(db.get('DBInstanceIdentifier'))
-            
-            result['rds']['instance_count'] = len(db_instances)
-            result['rds']['instances'] = []
-            
-            for db_id in db_instances[:10]:
+                        db_info.append({
+                            'id': db.get('DBInstanceIdentifier'),
+                            'class': db.get('DBInstanceClass'),
+                            'engine': db.get('Engine'),
+                            'multi_az': db.get('MultiAZ', False),
+                        })
+
+            result['rds']['total_instances'] = len(db_info)
+
+            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
+            for info in db_info:
                 util = await get_rds_utilization(
-                    ctx, client_id, db_id, resolved_region, days_back
+                    ctx, client_id, info['id'], resolved_region, days_back
                 )
-                
-                logger.debug(f'RDS utilization for {db_id}: {util}')
-                
-                # Handle error case
+
                 if 'error' in util:
-                    summary = {
-                        'db_instance_identifier': db_id,
-                        'cpu_avg': None,
-                        'status': 'error',
+                    buckets['error'].append({
+                        'db_identifier': info['id'],
+                        'db_class': info['class'],
+                        'engine': info['engine'],
                         'error': util.get('error'),
-                    }
+                    })
                 else:
-                    summary = {
-                        'db_instance_identifier': db_id,
-                        'cpu_avg': util.get('metrics', {}).get('cpu', {}).get('summary', {}).get('overall_average'),
-                        'status': util.get('assessment', {}).get('status', 'unknown'),
+                    cpu_avg = (
+                        util.get('metrics', {}).get('cpu', {})
+                        .get('summary', {}).get('overall_average')
+                    )
+                    cpu_max = (
+                        util.get('metrics', {}).get('cpu', {})
+                        .get('summary', {}).get('overall_maximum')
+                    )
+                    bucket = _classify_cpu(cpu_avg)
+                    buckets[bucket].append({
+                        'db_identifier': info['id'],
+                        'db_class': info['class'],
+                        'engine': info['engine'],
+                        'multi_az': info['multi_az'],
+                        'cpu_avg': cpu_avg,
+                        'cpu_max': cpu_max,
+                    })
+
+            rds_buckets = {}
+            for bucket_key, instances in buckets.items():
+                if instances:
+                    rds_buckets[bucket_key] = {
+                        'label': BUCKET_LABELS[bucket_key],
+                        'count': len(instances),
+                        'instances': instances,
                     }
-                result['rds']['instances'].append(summary)
-                
-                if summary.get('status') == 'underutilized':
-                    result['summary']['underutilized_rds'].append(db_id)
-            
-            if len(db_instances) > 10:
-                result['rds']['note'] = f'Showing first 10 of {len(db_instances)} instances'
-        
-        result['summary']['total_recommendations'] = (
-            len(result['summary']['underutilized_ec2']) +
-            len(result['summary']['underutilized_rds'])
-        )
-        
+            result['rds']['utilization_buckets'] = rds_buckets
+
         return result
-        
+
     except Exception as e:
         logger.error(f'Error getting multi-resource utilization: {e}')
         return {'error': str(e)}

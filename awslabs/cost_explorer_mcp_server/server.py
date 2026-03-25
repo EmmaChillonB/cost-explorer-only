@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Cost Explorer MCP server implementation.
+"""Cost Optimizer MCP server implementation.
 
-This server provides tools for analyzing AWS costs and usage data through the AWS Cost Explorer API.
+This server provides tools for analyzing AWS costs, usage, utilization and savings
+through the AWS Cost Explorer, CloudWatch and related APIs.
 """
 
 import os
@@ -30,6 +31,8 @@ from awslabs.cost_explorer_mcp_server.metadata_handler import (
     get_tag_values,
 )
 from awslabs.cost_explorer_mcp_server.utility_handler import get_today_date
+from awslabs.cost_explorer_mcp_server.cost_explorer.trend import get_cost_trend_with_anomalies
+from awslabs.cost_explorer_mcp_server.savings import get_savings_commitments
 from awslabs.cost_explorer_mcp_server.inventory import (
     describe_ec2_instances,
     list_ec2_regions_with_instances,
@@ -65,34 +68,33 @@ logger.add(sys.stderr, level=os.getenv('FASTMCP_LOG_LEVEL', 'WARNING'))
 
 # Define server instructions
 SERVER_INSTRUCTIONS = """
-# AWS Cost Explorer MCP Server
+# AWS Cost Optimizer MCP Server
 
-## IMPORTANT: Each API call costs $0.01 - use filters and specific date ranges to minimize charges.
+## IMPORTANT: Each Cost Explorer API call costs $0.01 - use specific tools to minimize charges.
 
-## Critical Rules
-- Comparison periods: exactly 1 month, start on day 1 (e.g., "2025-04-01" to "2025-05-01")
-- UsageQuantity: Recommended to filter by USAGE_TYPE, USAGE_TYPE_GROUP or results are meaningless
-- When user says "last X months": Use complete calendar months, not partial periods
-- get_cost_comparison_drivers: returns only top 10 most significant drivers
+## Recommended Tool Flow
 
-## Query Pattern Mapping
+### Historical Analysis
+- `get_cost_trend_with_anomalies` — Single call for 6-month trend + anomaly detection + drill-down.
+  Includes today's date, top services, and usage type drivers. Replaces multiple get_cost_and_usage calls.
 
-| User Query Pattern | Recommended Tool | Notes |
-|-------------------|-----------------|-------|
-| "What were my costs for..." | get_cost_and_usage | Use for historical cost analysis |
-| "How much did I spend on..." | get_cost_and_usage | Filter by service/region as needed |
-| "Show me costs by..." | get_cost_and_usage | Set group_by parameter accordingly |
-| "Compare costs between..." | get_cost_and_usage_comparisons | Ensure exactly 1 month periods |
-| "Why did my costs change..." | get_cost_comparison_drivers | Returns top 10 drivers only |
-| "What caused my bill to..." | get_cost_comparison_drivers | Good for root cause analysis |
-| "Predict/forecast my costs..." | get_cost_forecast | Works best with specific services |
-| "What will I spend on..." | get_cost_forecast | Can filter by dimension |
+### Compute Analysis
+- `list_ec2_regions_with_instances` — Discover regions with instances (running/stopped counts + types).
+- `get_multi_resource_utilization` — EC2 + RDS utilization grouped by buckets (<5%, 5-20%, 20-50%, 50-80%, >80%).
 
-## Cost Optimization Tips
-- Always use specific date ranges rather than broad periods
-- Filter by specific services when possible to reduce data processed
-- For usage metrics, always filter by USAGE_TYPE or USAGE_TYPE_GROUP to get meaningful results
-- Combine related questions into a single query where possible
+### Storage Analysis
+- `describe_ebs_volumes` — Compact volume info (id, size, type, state, attached instance).
+- `describe_ebs_snapshots` — Compact snapshot info with orphan detection.
+- `list_s3_buckets` — Boolean lifecycle flags (hasLifecycleRules, hasExpirationRules, hasTransitionRules).
+
+### Savings Strategy
+- `get_savings_commitments` — Existing SPs/RIs, coverage, utilization, and on-demand eligible spend.
+
+### Granular Queries (when needed)
+- `get_cost_and_usage` — Custom cost queries with filters and grouping ($0.01/call).
+- `get_cost_and_usage_comparisons` — Compare two monthly periods.
+- `get_cost_comparison_drivers` — Top 10 cost change drivers.
+- `get_cost_forecast` — Predict future costs.
 """
 
 # Get host configuration from environment (0.0.0.0 for container, 127.0.0.1 for local)
@@ -101,7 +103,7 @@ MCP_PORT = int(os.getenv('MCP_PORT', '8000'))
 
 # Create FastMCP server with instructions
 app = FastMCP(
-    name='Cost Explorer MCP Server',
+    name='Cost Optimizer MCP Server',
     instructions=SERVER_INSTRUCTIONS,
     host=MCP_HOST,
     port=MCP_PORT,
@@ -115,6 +117,10 @@ app.tool('get_cost_forecast')(get_cost_forecast)
 app.tool('get_cost_and_usage_comparisons')(get_cost_and_usage_comparisons)
 app.tool('get_cost_comparison_drivers')(get_cost_comparison_drivers)
 app.tool('get_cost_and_usage')(get_cost_and_usage)
+app.tool('get_cost_trend_with_anomalies')(get_cost_trend_with_anomalies)
+
+# Register savings tools
+app.tool('get_savings_commitments')(get_savings_commitments)
 
 # Register inventory tools
 app.tool('describe_ec2_instances')(describe_ec2_instances)

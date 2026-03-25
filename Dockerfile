@@ -102,7 +102,7 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 CMD ["do
 # MCP_MOUNT_PATH: Optional - Mount path for SSE/HTTP transport
 
 # Set defaults for container deployment
-ENV MCP_TRANSPORT=sse \
+ENV MCP_TRANSPORT=streamable-http \
     MCP_HOST=0.0.0.0 \
     MCP_PORT=8000
 

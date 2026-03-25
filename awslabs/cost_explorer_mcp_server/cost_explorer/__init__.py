@@ -26,6 +26,7 @@ from .comparison import get_cost_and_usage_comparisons, get_cost_comparison_driv
 from .forecast import get_cost_forecast
 from .metadata import get_dimension_values, get_tag_values
 from .utility import get_today_date
+from .trend import get_cost_trend_with_anomalies
 
 __all__ = [
     # Usage
@@ -40,4 +41,6 @@ __all__ = [
     'get_tag_values',
     # Utility
     'get_today_date',
+    # Trend analysis
+    'get_cost_trend_with_anomalies',
 ]

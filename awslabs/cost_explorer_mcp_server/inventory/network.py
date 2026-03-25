@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Network resources inventory handler (NAT Gateways, Elastic IPs)."""
+"""Network resources inventory handler — pre-analyzed for cost optimization.
+
+NAT Gateways and Elastic IPs are returned with summary + actionable items only.
+"""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 from mcp.server.fastmcp import Context
@@ -35,65 +38,61 @@ async def describe_nat_gateways(
         None,
         description="AWS region to query."
     ),
-    nat_gateway_ids: Optional[List[str]] = Field(
-        None,
-        description="List of specific NAT Gateway IDs to describe."
-    ),
-    filters: Optional[List[Dict[str, Any]]] = Field(
-        None,
-        description="List of filters to apply."
-    ),
 ) -> Dict[str, Any]:
-    """Describe NAT Gateways with cost-relevant information.
+    """Analyze NAT Gateways for cost optimization.
 
-    NAT Gateways are expensive ($0.045/hour + data processing charges).
+    NAT Gateways cost ~$32.40/month each ($0.045/hour) plus data processing.
+    Returns a summary with count and cost estimate, plus a compact list
+    with only the fields relevant for optimization decisions.
     """
     try:
         ec2 = get_ec2_client(client_id, region)
-        
-        params = {}
-        # Only add parameters if they are actual list values (not None or FieldInfo)
-        if nat_gateway_ids is not None and isinstance(nat_gateway_ids, list):
-            params['NatGatewayIds'] = nat_gateway_ids
-        if filters is not None and isinstance(filters, list):
-            params['Filter'] = filters
-        
-        nat_gateways = []
+        target_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
+
         paginator = ec2.get_paginator('describe_nat_gateways')
-        
-        for page in paginator.paginate(**params):
+
+        active = 0
+        total = 0
+        nat_list = []
+        vpc_counts: Dict[str, int] = {}
+
+        for page in paginator.paginate():
             for nat in page.get('NatGateways', []):
-                nat_info = {
+                total += 1
+                state = nat.get('State')
+                vpc_id = nat.get('VpcId', 'unknown')
+
+                if state == 'available':
+                    active += 1
+                    vpc_counts[vpc_id] = vpc_counts.get(vpc_id, 0) + 1
+
+                nat_list.append(serialize_datetime({
                     'NatGatewayId': nat.get('NatGatewayId'),
-                    'State': nat.get('State'),
-                    'VpcId': nat.get('VpcId'),
+                    'State': state,
+                    'VpcId': vpc_id,
                     'SubnetId': nat.get('SubnetId'),
                     'ConnectivityType': nat.get('ConnectivityType'),
                     'CreateTime': nat.get('CreateTime'),
-                    'NatGatewayAddresses': [
-                        {
-                            'AllocationId': addr.get('AllocationId'),
-                            'PublicIp': addr.get('PublicIp'),
-                            'PrivateIp': addr.get('PrivateIp'),
-                            'NetworkInterfaceId': addr.get('NetworkInterfaceId'),
-                        }
-                        for addr in nat.get('NatGatewayAddresses', [])
-                    ],
-                    'Tags': {tag['Key']: tag['Value'] for tag in nat.get('Tags', [])},
-                }
-                nat_gateways.append(serialize_datetime(nat_info))
-        
-        active_count = sum(1 for n in nat_gateways if n['State'] == 'available')
-        estimated_monthly_base_cost = active_count * 0.045 * 24 * 30
-        
-        return {
-            'nat_gateways': nat_gateways,
-            'count': len(nat_gateways),
-            'active_count': active_count,
-            'estimated_monthly_base_cost_usd': round(estimated_monthly_base_cost, 2),
-            'region': region or os.environ.get('AWS_REGION', 'eu-west-1'),
+                }))
+
+        estimated_monthly = round(active * 0.045 * 24 * 30, 2)
+
+        # Flag VPCs with multiple NAT GWs (possible consolidation)
+        vpcs_with_multiple = {
+            vpc: count for vpc, count in vpc_counts.items() if count > 1
         }
-        
+
+        return {
+            'summary': {
+                'total': total,
+                'active': active,
+                'estimated_monthly_base_cost_usd': estimated_monthly,
+                'vpcs_with_multiple_nat_gws': vpcs_with_multiple,
+            },
+            'nat_gateways': nat_list,
+            'region': target_region,
+        }
+
     except Exception as e:
         logger.error(f'Error describing NAT Gateways: {e}')
         return {'error': str(e)}
@@ -109,57 +108,49 @@ async def describe_elastic_ips(
         None,
         description="AWS region to query."
     ),
-    allocation_ids: Optional[List[str]] = Field(
-        None,
-        description="List of specific allocation IDs to describe."
-    ),
-    public_ips: Optional[List[str]] = Field(
-        None,
-        description="List of specific public IPs to describe."
-    ),
 ) -> Dict[str, Any]:
-    """Describe Elastic IPs with association status.
+    """Analyze Elastic IPs for cost optimization.
 
-    Unassociated Elastic IPs incur charges ($0.005/hour = ~$3.60/month).
+    Unassociated EIPs cost ~$3.60/month ($0.005/hour).
+    Returns a summary plus only the unassociated EIPs (actionable items).
+    Associated EIPs are only counted in the summary.
     """
     try:
         ec2 = get_ec2_client(client_id, region)
-        
-        params = {}
-        # Only add parameters if they are actual list values (not None or FieldInfo)
-        if allocation_ids is not None and isinstance(allocation_ids, list):
-            params['AllocationIds'] = allocation_ids
-        if public_ips is not None and isinstance(public_ips, list):
-            params['PublicIps'] = public_ips
-        
-        response = ec2.describe_addresses(**params)
-        
-        elastic_ips = []
+        target_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
+
+        response = ec2.describe_addresses()
+
+        total = 0
+        associated = 0
+        unassociated_eips = []
+
         for addr in response.get('Addresses', []):
-            eip_info = {
-                'AllocationId': addr.get('AllocationId'),
-                'PublicIp': addr.get('PublicIp'),
-                'AssociationId': addr.get('AssociationId'),
-                'InstanceId': addr.get('InstanceId'),
-                'NetworkInterfaceId': addr.get('NetworkInterfaceId'),
-                'PrivateIpAddress': addr.get('PrivateIpAddress'),
-                'Domain': addr.get('Domain'),
-                'IsAssociated': addr.get('AssociationId') is not None,
-                'Tags': {tag['Key']: tag['Value'] for tag in addr.get('Tags', [])},
-            }
-            elastic_ips.append(eip_info)
-        
-        unassociated_count = sum(1 for eip in elastic_ips if not eip['IsAssociated'])
-        estimated_monthly_waste = unassociated_count * 0.005 * 24 * 30
-        
+            total += 1
+            is_associated = addr.get('AssociationId') is not None
+
+            if is_associated:
+                associated += 1
+            else:
+                unassociated_eips.append({
+                    'AllocationId': addr.get('AllocationId'),
+                    'PublicIp': addr.get('PublicIp'),
+                })
+
+        unassociated = total - associated
+        estimated_monthly_waste = round(unassociated * 0.005 * 24 * 30, 2)
+
         return {
-            'elastic_ips': elastic_ips,
-            'count': len(elastic_ips),
-            'unassociated_count': unassociated_count,
-            'estimated_monthly_waste_usd': round(estimated_monthly_waste, 2),
-            'region': region or os.environ.get('AWS_REGION', 'eu-west-1'),
+            'summary': {
+                'total': total,
+                'associated': associated,
+                'unassociated': unassociated,
+                'estimated_monthly_waste_usd': estimated_monthly_waste,
+            },
+            'unassociated_eips': unassociated_eips,
+            'region': target_region,
         }
-        
+
     except Exception as e:
         logger.error(f'Error describing Elastic IPs: {e}')
         return {'error': str(e)}

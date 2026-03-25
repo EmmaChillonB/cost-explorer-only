@@ -32,49 +32,73 @@ async def list_ec2_regions_with_instances(
         description="Client identifier to use for this request."
     ),
 ) -> Dict[str, Any]:
-    """List all AWS regions and count of EC2 instances in each.
-    
-    Useful to discover which regions have EC2 instances before querying inventory.
+    """List AWS regions that have EC2 instances with a summary per region.
+
+    Returns regions with instances including counts by state (running/stopped)
+    and a breakdown of instance types found.
     """
     try:
-        # First get list of all regions
-        ec2 = get_ec2_client(client_id, 'us-east-1')  # Any region works to list regions
+        ec2 = get_ec2_client(client_id, 'us-east-1')
         regions_response = ec2.describe_regions()
-        
+
         regions_with_instances = []
-        
+
         for region_info in regions_response.get('Regions', []):
             region_name = region_info['RegionName']
             try:
                 regional_ec2 = get_ec2_client(client_id, region_name)
-                # Quick count using describe_instances
-                response = regional_ec2.describe_instances(MaxResults=5)
-                
-                # Count instances
-                count = sum(
-                    len(reservation.get('Instances', []))
-                    for reservation in response.get('Reservations', [])
-                )
-                
-                # Check if there might be more
-                has_more = 'NextToken' in response
-                
-                if count > 0 or has_more:
+                paginator = regional_ec2.get_paginator('describe_instances')
+
+                running = 0
+                stopped = 0
+                other = 0
+                instance_types: Dict[str, int] = {}
+
+                for page in paginator.paginate():
+                    for reservation in page.get('Reservations', []):
+                        for inst in reservation.get('Instances', []):
+                            state = inst.get('State', {}).get('Name', 'unknown')
+                            if state == 'running':
+                                running += 1
+                            elif state == 'stopped':
+                                stopped += 1
+                            else:
+                                other += 1
+                            itype = inst.get('InstanceType', 'unknown')
+                            instance_types[itype] = instance_types.get(itype, 0) + 1
+
+                total = running + stopped + other
+                if total > 0:
+                    sorted_types = sorted(
+                        instance_types.items(), key=lambda x: x[1], reverse=True
+                    )
                     regions_with_instances.append({
                         'region': region_name,
-                        'instance_count': count if not has_more else f'{count}+',
-                        'has_instances': True,
+                        'total': total,
+                        'running': running,
+                        'stopped': stopped,
+                        'instance_types': [
+                            {'type': t, 'count': c} for t, c in sorted_types
+                        ],
                     })
             except Exception as e:
                 logger.debug(f'Error checking region {region_name}: {e}')
                 continue
-        
+
+        total_instances = sum(r['total'] for r in regions_with_instances)
+        total_running = sum(r['running'] for r in regions_with_instances)
+        total_stopped = sum(r['stopped'] for r in regions_with_instances)
+
         return {
-            'regions_with_instances': regions_with_instances,
-            'total_regions_checked': len(regions_response.get('Regions', [])),
-            'hint': 'Use describe_ec2_instances with region parameter to query specific region',
+            'regions': regions_with_instances,
+            'summary': {
+                'regions_with_instances': len(regions_with_instances),
+                'total_instances': total_instances,
+                'total_running': total_running,
+                'total_stopped': total_stopped,
+            },
         }
-        
+
     except Exception as e:
         logger.error(f'Error listing regions with instances: {e}')
         return {'error': str(e)}

@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Load Balancer inventory handler."""
+"""Load Balancer inventory handler — pre-analyzed for cost optimization.
+
+Returns a summary of all LBs plus only the problematic ones in detail
+(no healthy targets, idle LBs).
+"""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 from mcp.server.fastmcp import Context
@@ -35,124 +39,79 @@ async def describe_load_balancers(
         None,
         description="AWS region to query."
     ),
-    load_balancer_arns: Optional[List[str]] = Field(
-        None,
-        description="List of specific load balancer ARNs to describe."
-    ),
-    names: Optional[List[str]] = Field(
-        None,
-        description="List of specific load balancer names to describe."
-    ),
-    include_target_health: bool = Field(
-        True,
-        description="Include target group health information."
-    ),
 ) -> Dict[str, Any]:
-    """Describe Application/Network Load Balancers with target health.
+    """Analyze Load Balancers for cost optimization.
 
-    Returns information about ALBs and NLBs including their target groups
-    and target health status.
+    Returns a summary with count by type, plus detail only for LBs
+    with no healthy targets (candidates for removal/investigation).
+    Well-functioning LBs are only counted in the summary.
     """
     try:
         elbv2 = get_elbv2_client(client_id, region)
-        
-        params = {}
-        if load_balancer_arns:
-            params['LoadBalancerArns'] = load_balancer_arns
-        if names:
-            params['Names'] = names
-        
-        load_balancers = []
+        target_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
+
         paginator = elbv2.get_paginator('describe_load_balancers')
-        
-        for page in paginator.paginate(**params):
+
+        total = 0
+        by_type: Dict[str, int] = {}
+        lbs_no_targets = []
+        lbs_all_unhealthy = []
+
+        for page in paginator.paginate():
             for lb in page.get('LoadBalancers', []):
-                lb_info = {
-                    'LoadBalancerArn': lb.get('LoadBalancerArn'),
-                    'LoadBalancerName': lb.get('LoadBalancerName'),
-                    'Type': lb.get('Type'),
+                total += 1
+                lb_type = lb.get('Type', 'unknown')
+                by_type[lb_type] = by_type.get(lb_type, 0) + 1
+
+                lb_arn = lb.get('LoadBalancerArn')
+                lb_name = lb.get('LoadBalancerName')
+
+                # Check target health
+                total_targets = 0
+                healthy_targets = 0
+                try:
+                    tg_resp = elbv2.describe_target_groups(LoadBalancerArn=lb_arn)
+                    for tg in tg_resp.get('TargetGroups', []):
+                        try:
+                            health_resp = elbv2.describe_target_health(
+                                TargetGroupArn=tg.get('TargetGroupArn')
+                            )
+                            for t in health_resp.get('TargetHealthDescriptions', []):
+                                total_targets += 1
+                                if t.get('TargetHealth', {}).get('State') == 'healthy':
+                                    healthy_targets += 1
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                lb_entry = serialize_datetime({
+                    'Name': lb_name,
+                    'Type': lb_type,
                     'Scheme': lb.get('Scheme'),
                     'State': lb.get('State', {}).get('Code'),
-                    'VpcId': lb.get('VpcId'),
-                    'AvailabilityZones': [
-                        {
-                            'ZoneName': az.get('ZoneName'),
-                            'SubnetId': az.get('SubnetId'),
-                        }
-                        for az in lb.get('AvailabilityZones', [])
-                    ],
                     'CreatedTime': lb.get('CreatedTime'),
-                    'IpAddressType': lb.get('IpAddressType'),
-                    'TargetGroups': [],
-                }
-                
-                if include_target_health:
-                    try:
-                        tg_response = elbv2.describe_target_groups(
-                            LoadBalancerArn=lb.get('LoadBalancerArn')
-                        )
-                        
-                        for tg in tg_response.get('TargetGroups', []):
-                            tg_info = {
-                                'TargetGroupArn': tg.get('TargetGroupArn'),
-                                'TargetGroupName': tg.get('TargetGroupName'),
-                                'Protocol': tg.get('Protocol'),
-                                'Port': tg.get('Port'),
-                                'TargetType': tg.get('TargetType'),
-                                'HealthCheckEnabled': tg.get('HealthCheckEnabled'),
-                                'Targets': [],
-                            }
-                            
-                            try:
-                                health_response = elbv2.describe_target_health(
-                                    TargetGroupArn=tg.get('TargetGroupArn')
-                                )
-                                
-                                healthy_count = 0
-                                unhealthy_count = 0
-                                
-                                for target in health_response.get('TargetHealthDescriptions', []):
-                                    state = target.get('TargetHealth', {}).get('State')
-                                    if state == 'healthy':
-                                        healthy_count += 1
-                                    else:
-                                        unhealthy_count += 1
-                                    
-                                    tg_info['Targets'].append({
-                                        'Target': target.get('Target'),
-                                        'HealthState': state,
-                                        'HealthDescription': target.get('TargetHealth', {}).get('Description'),
-                                    })
-                                
-                                tg_info['HealthyTargetCount'] = healthy_count
-                                tg_info['UnhealthyTargetCount'] = unhealthy_count
-                                tg_info['TotalTargetCount'] = healthy_count + unhealthy_count
-                                
-                            except Exception as health_error:
-                                logger.warning(f'Error getting target health: {health_error}')
-                                tg_info['HealthError'] = str(health_error)
-                            
-                            lb_info['TargetGroups'].append(tg_info)
-                            
-                    except Exception as tg_error:
-                        logger.warning(f'Error getting target groups: {tg_error}')
-                        lb_info['TargetGroupError'] = str(tg_error)
-                
-                load_balancers.append(serialize_datetime(lb_info))
-        
-        lbs_with_no_targets = sum(
-            1 for lb in load_balancers 
-            if all(tg.get('TotalTargetCount', 0) == 0 for tg in lb.get('TargetGroups', []))
-            and lb.get('TargetGroups')
-        )
-        
+                    'TotalTargets': total_targets,
+                    'HealthyTargets': healthy_targets,
+                })
+
+                if total_targets == 0:
+                    lbs_no_targets.append(lb_entry)
+                elif healthy_targets == 0:
+                    lbs_all_unhealthy.append(lb_entry)
+
         return {
-            'load_balancers': load_balancers,
-            'count': len(load_balancers),
-            'load_balancers_with_no_targets': lbs_with_no_targets,
-            'region': region or os.environ.get('AWS_REGION', 'eu-west-1'),
+            'summary': {
+                'total': total,
+                'by_type': by_type,
+                'with_no_targets': len(lbs_no_targets),
+                'with_all_unhealthy': len(lbs_all_unhealthy),
+            },
+            'lbs_no_targets': lbs_no_targets,
+            'lbs_all_unhealthy': lbs_all_unhealthy,
+            'region': target_region,
         }
-        
+
     except Exception as e:
         logger.error(f'Error describing load balancers: {e}')
         return {'error': str(e)}

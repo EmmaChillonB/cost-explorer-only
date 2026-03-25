@@ -4,4 +4,5 @@ fastmcp
 awscli
 boto3
 pandas
+python-dateutil
 pytest
