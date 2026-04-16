@@ -529,43 +529,59 @@ class TestGetMultiResourceUtilization:
         with patch('awslabs.cost_explorer_mcp_server.utilization.multi.get_ec2_client') as mock_ec2, \
              patch('awslabs.cost_explorer_mcp_server.utilization.ec2.get_cloudwatch_client') as mock_cw, \
              patch('awslabs.cost_explorer_mcp_server.utilization.multi.get_rds_client') as mock_rds:
-            
+
             ec2_client = MagicMock()
             cw_client = MagicMock()
             rds_client = MagicMock()
-            
+
             mock_ec2.return_value = ec2_client
             mock_cw.return_value = cw_client
             mock_rds.return_value = rds_client
-            
-            # Mock EC2 instances
+
+            # Mock EC2 instances with all required fields
             ec2_paginator = MagicMock()
             ec2_client.get_paginator.return_value = ec2_paginator
             ec2_paginator.paginate.return_value = [
                 {
                     'Reservations': [
-                        {'Instances': [{'InstanceId': 'i-123'}]}
+                        {
+                            'Instances': [
+                                {
+                                    'InstanceId': 'i-123',
+                                    'InstanceType': 't3.micro',
+                                    'Tags': [{'Key': 'Name', 'Value': 'test'}],
+                                    'State': {'Name': 'running'},
+                                    'LaunchTime': datetime(2025, 1, 1, tzinfo=timezone.utc),
+                                }
+                            ]
+                        }
                     ]
                 }
             ]
-            
+
             # Mock RDS instances
             rds_paginator = MagicMock()
             rds_client.get_paginator.return_value = rds_paginator
             rds_paginator.paginate.return_value = [
                 {
                     'DBInstances': [
-                        {'DBInstanceIdentifier': 'db-123', 'DBInstanceStatus': 'available'}
+                        {
+                            'DBInstanceIdentifier': 'db-123',
+                            'DBInstanceClass': 'db.t3.micro',
+                            'Engine': 'mysql',
+                            'MultiAZ': False,
+                            'DBInstanceStatus': 'available',
+                        }
                     ]
                 }
             ]
-            
+
             # Mock CloudWatch metrics
             cw_client.get_metric_statistics.return_value = {
                 'Datapoints': [
                     {
                         'Timestamp': datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
-                        'Average': 5.0,  # Low utilization
+                        'Average': 5.0,
                         'Maximum': 10.0,
                         'Minimum': 2.0,
                     }
@@ -576,7 +592,7 @@ class TestGetMultiResourceUtilization:
             result = await get_multi_resource_utilization(
                 ctx,
                 client_id='test-client',
-                region=None,
+                region='eu-west-1',
                 days_back=7,
                 include_ec2=True,
                 include_rds=True,
@@ -585,9 +601,8 @@ class TestGetMultiResourceUtilization:
 
             assert 'ec2' in result
             assert 'rds' in result
-            assert 'summary' in result
-            assert result['ec2']['instance_count'] == 1
-            assert result['rds']['instance_count'] == 1
+            assert result['ec2']['total_instances'] == 1
+            assert result['rds']['total_instances'] == 1
 
 
 class TestGetMetricStatistics:

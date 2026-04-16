@@ -285,23 +285,22 @@ class TestDescribeEBSVolumes:
 
         ctx = MagicMock()
         result = await describe_ebs_volumes(
-            ctx, 
+            ctx,
             client_id='test-client',
-            region=None,
-            volume_ids=None,
-            filters=None,
-            include_unattached_only=False,
+            region='us-east-1',
         )
 
-        assert 'volumes' in result
-        assert result['count'] == 2
-        assert result['unattached_count'] == 1
-        assert result['total_size_gb'] == 150
-        assert result['unattached_size_gb'] == 50
+        assert 'summary' in result
+        assert result['summary']['total'] == 2
+        assert result['summary']['unattached'] == 1
+        assert result['summary']['total_size_gb'] == 150
+        assert result['summary']['unattached_size_gb'] == 50
+        assert len(result['unattached_volumes']) == 1
+        assert len(result['attached_volumes']) == 1
 
     @pytest.mark.asyncio
     async def test_describe_ebs_volumes_unattached_only(self, mock_ec2_client):
-        """Test filtering for unattached volumes only."""
+        """Test empty volumes result."""
         mock_paginator = MagicMock()
         mock_ec2_client.get_paginator.return_value = mock_paginator
         mock_paginator.paginate.return_value = [{'Volumes': []}]
@@ -310,14 +309,11 @@ class TestDescribeEBSVolumes:
         result = await describe_ebs_volumes(
             ctx,
             client_id='test-client',
-            region=None,
-            volume_ids=None,
-            filters=None,
-            include_unattached_only=True,
+            region='us-east-1',
         )
 
-        call_kwargs = mock_paginator.paginate.call_args[1]
-        assert {'Name': 'status', 'Values': ['available']} in call_kwargs['Filters']
+        assert result['summary']['total'] == 0
+        assert result['summary']['unattached'] == 0
 
 
 class TestDescribeEBSSnapshots:
@@ -378,24 +374,23 @@ class TestDescribeEBSSnapshots:
 
         ctx = MagicMock()
         result = await describe_ebs_snapshots(
-            ctx, 
+            ctx,
             client_id='test-client',
-            region=None,
-            owner_ids=None,
-            snapshot_ids=None,
-            include_orphaned_only=False,
+            region='us-east-1',
         )
 
-        assert result['count'] == 2
-        assert result['orphaned_count'] == 1
-        assert result['orphaned_size_gb'] == 50
+        assert 'summary' in result
+        assert result['summary']['total'] == 2
+        assert result['summary']['orphaned'] == 1
+        assert result['summary']['orphaned_size_gb'] == 50
+        assert len(result['orphaned_snapshots']) == 1
 
     @pytest.mark.asyncio
     async def test_describe_ebs_snapshots_orphaned_only(self, mock_ec2_client):
-        """Test filtering for orphaned snapshots only."""
+        """Test all snapshots orphaned when no volumes exist."""
         vol_paginator = MagicMock()
         vol_paginator.paginate.return_value = [{'Volumes': []}]
-        
+
         snap_paginator = MagicMock()
         snap_paginator.paginate.return_value = [
             {
@@ -412,26 +407,23 @@ class TestDescribeEBSSnapshots:
                 ]
             }
         ]
-        
+
         def get_paginator(operation):
             if operation == 'describe_volumes':
                 return vol_paginator
             return snap_paginator
-        
+
         mock_ec2_client.get_paginator.side_effect = get_paginator
 
         ctx = MagicMock()
         result = await describe_ebs_snapshots(
             ctx,
             client_id='test-client',
-            region=None,
-            owner_ids=None,
-            snapshot_ids=None,
-            include_orphaned_only=True,
+            region='us-east-1',
         )
 
-        assert result['count'] == 1
-        assert result['orphaned_count'] == 1
+        assert result['summary']['total'] == 1
+        assert result['summary']['orphaned'] == 1
 
 
 class TestDescribeLoadBalancers:
@@ -472,7 +464,7 @@ class TestDescribeLoadBalancers:
                 ]
             }
         ]
-        
+
         # Mock target groups
         mock_elbv2_client.describe_target_groups.return_value = {
             'TargetGroups': [
@@ -486,8 +478,8 @@ class TestDescribeLoadBalancers:
                 }
             ]
         }
-        
-        # Mock target health
+
+        # Mock target health - 1 healthy, 1 unhealthy
         mock_elbv2_client.describe_target_health.return_value = {
             'TargetHealthDescriptions': [
                 {
@@ -502,16 +494,15 @@ class TestDescribeLoadBalancers:
         }
 
         ctx = MagicMock()
-        result = await describe_load_balancers(ctx, client_id='test-client')
+        result = await describe_load_balancers(ctx, client_id='test-client', region='us-east-1')
 
-        assert 'load_balancers' in result
-        assert result['count'] == 1
-        lb = result['load_balancers'][0]
-        assert lb['LoadBalancerName'] == 'my-alb'
-        assert lb['Type'] == 'application'
-        assert len(lb['TargetGroups']) == 1
-        assert lb['TargetGroups'][0]['HealthyTargetCount'] == 1
-        assert lb['TargetGroups'][0]['UnhealthyTargetCount'] == 1
+        assert 'summary' in result
+        assert result['summary']['total'] == 1
+        assert result['summary']['by_type'] == {'application': 1}
+        # LB has targets (2 total, 1 healthy) so it should NOT be in lbs_no_targets
+        assert len(result['lbs_no_targets']) == 0
+        # It has at least one healthy target so it should NOT be in lbs_all_unhealthy
+        assert len(result['lbs_all_unhealthy']) == 0
 
 
 class TestDescribeNATGateways:
@@ -557,13 +548,14 @@ class TestDescribeNATGateways:
         ]
 
         ctx = MagicMock()
-        result = await describe_nat_gateways(ctx, client_id='test-client')
+        result = await describe_nat_gateways(ctx, client_id='test-client', region='us-east-1')
 
-        assert 'nat_gateways' in result
-        assert result['count'] == 1
-        assert result['active_count'] == 1
+        assert 'summary' in result
+        assert result['summary']['total'] == 1
+        assert result['summary']['active'] == 1
         # $0.045/hour * 24 hours * 30 days = $32.40
-        assert result['estimated_monthly_base_cost_usd'] == 32.4
+        assert result['summary']['estimated_monthly_base_cost_usd'] == 32.4
+        assert len(result['nat_gateways']) == 1
 
 
 class TestDescribeElasticIPs:
@@ -602,13 +594,14 @@ class TestDescribeElasticIPs:
         }
 
         ctx = MagicMock()
-        result = await describe_elastic_ips(ctx, client_id='test-client')
+        result = await describe_elastic_ips(ctx, client_id='test-client', region='us-east-1')
 
-        assert 'elastic_ips' in result
-        assert result['count'] == 2
-        assert result['unassociated_count'] == 1
+        assert 'summary' in result
+        assert result['summary']['total'] == 2
+        assert result['summary']['unassociated'] == 1
         # $0.005/hour * 24 * 30 = $3.60
-        assert result['estimated_monthly_waste_usd'] == 3.6
+        assert result['summary']['estimated_monthly_waste_usd'] == 3.6
+        assert len(result['unassociated_eips']) == 1
 
 
 class TestListS3Buckets:
@@ -619,12 +612,15 @@ class TestListS3Buckets:
         """Mock S3 client."""
         with patch(
             'awslabs.cost_explorer_mcp_server.inventory.s3.get_s3_client'
-        ) as mock:
+        ) as mock_s3, patch(
+            'awslabs.cost_explorer_mcp_server.inventory.s3.get_cloudwatch_client'
+        ) as mock_cw:
             client = MagicMock()
-            mock.return_value = client
-            # Add exceptions attribute
-            client.exceptions = MagicMock()
-            client.exceptions.ClientError = Exception
+            mock_s3.return_value = client
+            cw_client = MagicMock()
+            mock_cw.return_value = cw_client
+            # CloudWatch returns no datapoints by default
+            cw_client.get_metric_statistics.return_value = {'Datapoints': []}
             yield client
 
     @pytest.mark.asyncio
@@ -638,11 +634,11 @@ class TestListS3Buckets:
                 }
             ]
         }
-        
+
         mock_s3_client.get_bucket_location.return_value = {
             'LocationConstraint': 'us-west-2'
         }
-        
+
         mock_s3_client.get_bucket_lifecycle_configuration.return_value = {
             'Rules': [
                 {
@@ -653,34 +649,18 @@ class TestListS3Buckets:
                 }
             ]
         }
-        
+
         mock_s3_client.get_bucket_versioning.return_value = {
             'Status': 'Enabled'
-        }
-        
-        mock_s3_client.get_bucket_encryption.return_value = {
-            'ServerSideEncryptionConfiguration': {
-                'Rules': [
-                    {
-                        'ApplyServerSideEncryptionByDefault': {
-                            'SSEAlgorithm': 'AES256'
-                        }
-                    }
-                ]
-            }
         }
 
         ctx = MagicMock()
         result = await list_s3_buckets(ctx, client_id='test-client')
 
-        assert 'buckets' in result
-        assert result['count'] == 1
-        bucket = result['buckets'][0]
-        assert bucket['Name'] == 'my-bucket'
-        assert bucket['Region'] == 'us-west-2'
-        assert bucket['HasLifecycleRules'] is True
-        assert bucket['VersioningStatus'] == 'Enabled'
-        assert bucket['EncryptionEnabled'] is True
+        assert 'summary' in result
+        assert result['summary']['total_buckets'] == 1
+        assert result['summary']['buckets_with_versioning'] == 1
+        assert result['summary']['buckets_without_lifecycle'] == 0
 
     @pytest.mark.asyncio
     async def test_list_s3_buckets_no_lifecycle(self, mock_s3_client):
@@ -693,17 +673,16 @@ class TestListS3Buckets:
                 }
             ]
         }
-        
+
         mock_s3_client.get_bucket_location.return_value = {'LocationConstraint': None}
-        
+
         # Simulate NoSuchLifecycleConfiguration error
         error = Exception('NoSuchLifecycleConfiguration')
         mock_s3_client.get_bucket_lifecycle_configuration.side_effect = error
-        
+
         mock_s3_client.get_bucket_versioning.return_value = {}
-        mock_s3_client.get_bucket_encryption.side_effect = Exception('ServerSideEncryptionConfigurationNotFoundError')
 
         ctx = MagicMock()
         result = await list_s3_buckets(ctx, client_id='test-client')
 
-        assert result['buckets_without_lifecycle'] == 1
+        assert result['summary']['buckets_without_lifecycle'] == 1

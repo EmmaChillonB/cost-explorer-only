@@ -27,7 +27,7 @@ from .constants import (
     VALID_FORECAST_METRICS,
     VALID_PREDICTION_INTERVALS,
 )
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 from .validation import validate_expression, validate_forecast_date_range
 from .models import DateRange
 
@@ -59,6 +59,10 @@ async def get_cost_forecast(
     prediction_interval_level: int = Field(
         80,
         description=f'The confidence level for the forecast prediction interval. Valid values are {" and ".join(map(str, VALID_PREDICTION_INTERVALS))}. Higher values provide wider confidence ranges.',
+    ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Retrieve AWS cost forecasts based on historical usage patterns.
@@ -145,7 +149,11 @@ async def get_cost_forecast(
 
         # Add filter if provided
         if filter_criteria:
-            forecast_params['Filter'] = filter_criteria
+            forecast_params['Filter'] = build_account_filter(client_id, account_scope, filter_criteria)
+        else:
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                forecast_params['Filter'] = acct_filter
 
         # Get forecast data
         ce = get_cost_explorer_client(client_id)

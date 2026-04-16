@@ -343,6 +343,106 @@ def get_cost_explorer_client(client_id: str) -> Any:
             _clear_refresh_in_flight(client_id, refresh_event)
 
 
+def get_account_id(client_id: str) -> Optional[str]:
+    """Get the account_id for a client from clients.json.
+
+    Returns the explicit ``account_id`` field if present, otherwise extracts
+    it from the ``role_arn``.  Returns ``None`` only when the client is not
+    found at all.
+    """
+    clients_config = _load_clients_config()
+    client_cfg = clients_config.get(client_id)
+    if not client_cfg:
+        return None
+
+    # Prefer explicit account_id
+    account_id = client_cfg.get('account_id')
+    if account_id:
+        return str(account_id)
+
+    # Fallback: extract from role_arn  (arn:aws:iam::123456789012:role/name)
+    role_arn = client_cfg.get('role_arn', '')
+    parts = role_arn.split(':')
+    if len(parts) >= 5 and parts[4]:
+        return parts[4]
+
+    return None
+
+
+def get_account_type(client_id: str) -> str:
+    """Get the account_type for a client from clients.json.
+
+    Returns ``"payer"`` or ``"linked"``. Defaults to ``"linked"`` if not set.
+    """
+    clients_config = _load_clients_config()
+    client_cfg = clients_config.get(client_id, {})
+    return client_cfg.get('account_type', 'linked')
+
+
+def is_payer_account(client_id: str) -> bool:
+    """Check if client is a payer/management account."""
+    return get_account_type(client_id) == 'payer'
+
+
+def build_account_filter(
+    client_id: str,
+    account_scope: str = "auto",
+    existing_filter: Optional[dict] = None,
+) -> Optional[dict]:
+    """Build a Cost Explorer filter scoped to the client's account.
+
+    Filtering logic:
+    - ``"auto"`` (default): applies LINKED_ACCOUNT filter only for payer accounts
+      (to isolate their own costs). Linked accounts don't need filtering since
+      CE already returns only their data when called with their own credentials.
+    - ``"all"``: no filter — returns all accounts' data (only useful from payer).
+    - ``"linked"``: always applies LINKED_ACCOUNT filter regardless of account type.
+
+    Args:
+        client_id: Client identifier from clients.json.
+        account_scope: "auto", "all", or "linked".
+        existing_filter: Optional existing filter to combine with.
+
+    Returns:
+        Combined filter dict, the original filter unchanged, or None if no
+        filter is needed.
+    """
+    # "all" = no filtering, return everything (payer consolidated view)
+    if account_scope == "all":
+        return existing_filter
+
+    # Determine if we need to filter
+    needs_filter = False
+    if account_scope == "linked":
+        needs_filter = True
+    elif account_scope == "auto":
+        # Only payer accounts need filtering (linked accounts are already scoped)
+        needs_filter = is_payer_account(client_id)
+
+    if not needs_filter:
+        return existing_filter
+
+    account_id = get_account_id(client_id)
+    if not account_id:
+        return existing_filter
+
+    account_filter = {
+        'Dimensions': {
+            'Key': 'LINKED_ACCOUNT',
+            'Values': [account_id],
+        }
+    }
+
+    if not existing_filter:
+        return account_filter
+
+    # Combine: if existing already has And, append; otherwise wrap both
+    if 'And' in existing_filter:
+        return {'And': existing_filter['And'] + [account_filter]}
+
+    return {'And': [existing_filter, account_filter]}
+
+
 def close_client_session(client_id: str) -> Dict[str, Any]:
     """Close client session and clean up resources (thread-safe)."""
     try:

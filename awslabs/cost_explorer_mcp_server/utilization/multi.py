@@ -14,7 +14,9 @@
 
 """Multi-resource utilization handler."""
 
+import asyncio
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -24,6 +26,11 @@ from pydantic import Field
 from ..aws_clients import get_ec2_client, get_rds_client
 from .ec2 import get_ec2_utilization
 from .rds import get_rds_utilization
+
+# Max concurrent CloudWatch calls per tool invocation.
+# CloudWatch allows ~400 req/s per account; 20 in-flight gives good
+# throughput while staying well under the rate limit.
+_MAX_CONCURRENT = 20
 
 
 def _classify_cpu(cpu_avg: Optional[float]) -> str:
@@ -107,43 +114,87 @@ async def get_multi_resource_utilization(
             for page in paginator.paginate(Filters=filters):
                 for reservation in page.get('Reservations', []):
                     for instance in reservation.get('Instances', []):
+                        name = next(
+                            (t['Value'] for t in instance.get('Tags', []) if t['Key'] == 'Name'),
+                            None,
+                        )
+                        # Calculate uptime from LaunchTime
+                        launch_time = instance.get('LaunchTime')
+                        uptime_days = None
+                        if launch_time:
+                            if launch_time.tzinfo is None:
+                                launch_time = launch_time.replace(tzinfo=timezone.utc)
+                            uptime_days = (datetime.now(timezone.utc) - launch_time).days
+
                         instance_info.append({
                             'id': instance.get('InstanceId'),
                             'type': instance.get('InstanceType'),
+                            'name': name,
                             'lifecycle': instance.get('InstanceLifecycle', 'on-demand'),
+                            'state': instance.get('State', {}).get('Name', 'unknown'),
+                            'uptime_days': uptime_days,
                         })
 
             result['ec2']['total_instances'] = len(instance_info)
 
-            # Get utilization for each (limit to avoid timeout)
-            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
-            for info in instance_info:
-                util = await get_ec2_utilization(
-                    ctx, client_id, info['id'], resolved_region, days_back
+            # Get utilization for each instance in parallel.
+            # get_ec2_utilization is async on signature but uses sync boto3
+            # internally, which blocks the event loop. We wrap each call with
+            # asyncio.to_thread + a fresh event loop so they truly run in
+            # parallel across worker threads.
+            def _sync_ec2_util(info):
+                return asyncio.new_event_loop().run_until_complete(
+                    get_ec2_utilization(
+                        ctx, client_id, info['id'], resolved_region, days_back
+                    )
                 )
+
+            ec2_sem = asyncio.Semaphore(_MAX_CONCURRENT)
+
+            async def _fetch_ec2(info):
+                async with ec2_sem:
+                    return await asyncio.to_thread(_sync_ec2_util, info)
+
+            ec2_utils = await asyncio.gather(
+                *[_fetch_ec2(info) for info in instance_info],
+                return_exceptions=True,
+            )
+
+            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
+            for info, util in zip(instance_info, ec2_utils):
+                if isinstance(util, Exception):
+                    util = {'error': str(util)}
 
                 if 'error' in util:
                     buckets['error'].append({
                         'instance_id': info['id'],
                         'instance_type': info['type'],
+                        'name': info.get('name'),
                         'error': util.get('error'),
                     })
                 else:
-                    cpu_avg = (
-                        util.get('metrics', {}).get('cpu', {})
-                        .get('summary', {}).get('overall_average')
-                    )
-                    cpu_max = (
-                        util.get('metrics', {}).get('cpu', {})
-                        .get('summary', {}).get('overall_maximum')
-                    )
+                    metrics = util.get('metrics', {})
+                    cpu_avg = metrics.get('cpu', {}).get('summary', {}).get('overall_average')
+                    cpu_max = metrics.get('cpu', {}).get('summary', {}).get('overall_maximum')
+
+                    # Network (bytes → MB/day for readability)
+                    net_in_sum = metrics.get('network_in', {}).get('summary', {}).get('overall_sum')
+                    net_out_sum = metrics.get('network_out', {}).get('summary', {}).get('overall_sum')
+                    net_in_mb_day = round(net_in_sum / (1024 * 1024) / days_back, 1) if net_in_sum else None
+                    net_out_mb_day = round(net_out_sum / (1024 * 1024) / days_back, 1) if net_out_sum else None
+
                     bucket = _classify_cpu(cpu_avg)
                     buckets[bucket].append({
                         'instance_id': info['id'],
                         'instance_type': info['type'],
+                        'name': info.get('name'),
                         'lifecycle': info['lifecycle'],
+                        'state': info.get('state', 'unknown'),
+                        'uptime_days': info.get('uptime_days'),
                         'cpu_avg': cpu_avg,
                         'cpu_max': cpu_max,
+                        'net_in_mb_day': net_in_mb_day,
+                        'net_out_mb_day': net_out_mb_day,
                     })
 
             # Build compact output - only include non-empty buckets
@@ -174,11 +225,30 @@ async def get_multi_resource_utilization(
 
             result['rds']['total_instances'] = len(db_info)
 
-            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
-            for info in db_info:
-                util = await get_rds_utilization(
-                    ctx, client_id, info['id'], resolved_region, days_back
+            # Same pattern as EC2: wrap async-but-actually-sync calls with
+            # asyncio.to_thread so they run in worker threads in parallel.
+            def _sync_rds_util(info):
+                return asyncio.new_event_loop().run_until_complete(
+                    get_rds_utilization(
+                        ctx, client_id, info['id'], resolved_region, days_back
+                    )
                 )
+
+            rds_sem = asyncio.Semaphore(_MAX_CONCURRENT)
+
+            async def _fetch_rds(info):
+                async with rds_sem:
+                    return await asyncio.to_thread(_sync_rds_util, info)
+
+            rds_utils = await asyncio.gather(
+                *[_fetch_rds(info) for info in db_info],
+                return_exceptions=True,
+            )
+
+            buckets: Dict[str, list] = {k: [] for k in BUCKET_LABELS}
+            for info, util in zip(db_info, rds_utils):
+                if isinstance(util, Exception):
+                    util = {'error': str(util)}
 
                 if 'error' in util:
                     buckets['error'].append({

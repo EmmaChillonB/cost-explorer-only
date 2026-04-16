@@ -23,7 +23,7 @@ from pydantic import Field
 from typing import Any, Dict, Optional
 
 from .constants import VALID_DIMENSIONS
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 from .models import DateRange, DimensionKey
 
 
@@ -40,14 +40,18 @@ async def get_dimension_values(
         description="Client identifier to use for this request. Must exist in clients.json configuration."
     ),
     date_range: Optional[DateRange] = Field(
-        None, 
+        None,
         description='The billing period start and end dates in YYYY-MM-DD format.'
+    ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Get available values for a specific dimension.
-    
-    Retrieves valid values for filtering AWS Cost Explorer by a specific dimension 
-    (e.g., SERVICE, REGION). Use this to discover available filter values before 
+
+    Retrieves valid values for filtering AWS Cost Explorer by a specific dimension
+    (e.g., SERVICE, REGION). Use this to discover available filter values before
     querying costs.
     
     Args:
@@ -78,10 +82,13 @@ async def get_dimension_values(
                 'TimePeriod': {'Start': start_date, 'End': end_date},
                 'Dimension': dimension_key.dimension_key.upper(),
             }
-            
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                params['Filter'] = acct_filter
+
             if next_token:
                 params['NextPageToken'] = next_token
-            
+
             response = ce.get_dimension_values(**params)
             
             dimension_values = response.get('DimensionValues', [])
@@ -113,12 +120,16 @@ async def get_tag_values(
         description="Client identifier to use for this request. Must exist in clients.json configuration."
     ),
     date_range: Optional[DateRange] = Field(
-        None, 
+        None,
         description='The billing period start and end dates in YYYY-MM-DD format.'
+    ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Get available values for a specific tag key.
-    
+
     Retrieves valid values for filtering AWS Cost Explorer by a specific tag key.
     Use this to discover available tag values before querying costs.
     
@@ -150,10 +161,13 @@ async def get_tag_values(
                 'TimePeriod': {'Start': start_date, 'End': end_date},
                 'TagKey': tag_key,
             }
-            
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                params['Filter'] = acct_filter
+
             if next_token:
                 params['NextPageToken'] = next_token
-            
+
             response = ce.get_tags(**params)
             
             tag_values = response.get('Tags', [])

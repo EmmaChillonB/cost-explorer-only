@@ -17,13 +17,21 @@
 import os
 import sys
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List
 
 from loguru import logger
 
 # Configure Loguru logging
 logger.remove()
 logger.add(sys.stderr, level=os.getenv('FASTMCP_LOG_LEVEL', 'WARNING'))
+
+# Max parallel region scans. AWS has ~18 regions by default; scanning all in
+# parallel is safe (each region uses its own regional endpoint).
+REGIONS_MAX_CONCURRENT = 18
+
+# Process-wide cache: client_id -> list of enabled region names.
+# The set of enabled regions is effectively static during a workflow run.
+_ENABLED_REGIONS_CACHE: Dict[str, List[str]] = {}
 
 
 def serialize_datetime(obj: Any) -> Any:
@@ -35,3 +43,21 @@ def serialize_datetime(obj: Any) -> Any:
     elif isinstance(obj, list):
         return [serialize_datetime(item) for item in obj]
     return obj
+
+
+def list_enabled_regions(client_id: str) -> List[str]:
+    """Return all AWS regions enabled for this account, cached per client_id.
+
+    Sync — intended to be wrapped with ``asyncio.to_thread`` from async code.
+    """
+    if client_id in _ENABLED_REGIONS_CACHE:
+        return _ENABLED_REGIONS_CACHE[client_id]
+
+    # Lazy import to avoid circular dependency with aws_clients.
+    from ..aws_clients import get_ec2_client
+
+    ec2 = get_ec2_client(client_id, 'us-east-1')
+    resp = ec2.describe_regions()
+    regions = [r['RegionName'] for r in resp.get('Regions', [])]
+    _ENABLED_REGIONS_CACHE[client_id] = regions
+    return regions

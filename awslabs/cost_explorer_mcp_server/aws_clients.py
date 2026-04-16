@@ -127,40 +127,94 @@ def _get_or_create_session(client_id: str) -> boto3.Session:
     return session
 
 
+# Opt-in regions that may need regional STS AssumeRole
+_OPT_IN_REGIONS = {
+    'af-south-1', 'ap-east-1', 'ap-south-2', 'ap-southeast-3', 'ap-southeast-4',
+    'eu-south-1', 'eu-south-2', 'eu-central-2', 'il-central-1', 'me-south-1',
+    'me-central-1', 'ca-west-1',
+}
+
+
 def get_aws_client(client_id: str, service_name: str, region: Optional[str] = None) -> Any:
     """Get or create an AWS service client with automatic token refresh.
-    
+
+    For opt-in regions (eu-south-2, etc.), creates a separate session with
+    STS AssumeRole called from within that region to avoid AuthFailure.
+
     Args:
         client_id: Client identifier from clients.json
         service_name: AWS service name (e.g., 'ec2', 'rds', 'cloudwatch', 's3', 'elb', 'elbv2')
         region: Optional AWS region override
-        
+
     Returns:
         Boto3 service client
     """
     target_region = region or os.environ.get('AWS_REGION', 'eu-west-1')
     cache_key = f"{client_id}:{service_name}:{target_region}"
-    
+
     with _service_client_lock:
         # Check if we have a valid cached client
         if cache_key in _service_clients and not _is_service_token_expired(client_id):
             logger.debug(f'Using cached {service_name} client for {client_id[:8]}')
             return _service_clients[cache_key]
-    
-    # Get or create session (handles token refresh)
+
     try:
-        session = _get_or_create_session(client_id)
-        client = session.client(service_name, region_name=target_region)
-        
+        # For opt-in regions, use regional STS to assume role
+        if target_region in _OPT_IN_REGIONS:
+            client = _create_regional_client(client_id, service_name, target_region)
+        else:
+            # Standard path: reuse the main assumed session
+            session = _get_or_create_session(client_id)
+            client = session.client(service_name, region_name=target_region)
+
         with _service_client_lock:
             _service_clients[cache_key] = client
-        
+
         logger.info(f'Created {service_name} client for {client_id[:8]} in {target_region}')
         return client
-        
+
     except Exception as e:
         logger.error(f'Error creating {service_name} client for {client_id}: {e}')
         raise
+
+
+def _create_regional_client(client_id: str, service_name: str, region: str) -> Any:
+    """Create a service client for an opt-in region using regional STS.
+
+    Opt-in regions (eu-south-2, etc.) require AssumeRole via their own
+    regional STS endpoint. Tokens from the global/default STS may not work.
+    """
+    role_arn = _get_role_arn_for_client(client_id)
+    if not role_arn:
+        raise ValueError(f'Client {client_id} not found in clients.json')
+
+    aws_region = os.environ.get('AWS_REGION', 'eu-west-1')
+    base_session = boto3.Session(region_name=aws_region)
+
+    safe_id = ''.join(c if c.isalnum() else '-' for c in client_id)[:12]
+    session_name = f'reg-{safe_id}-{int(time.time())}'
+
+    # Use the regional STS endpoint
+    regional_sts = base_session.client(
+        'sts',
+        region_name=region,
+        endpoint_url=f'https://sts.{region}.amazonaws.com',
+    )
+    assumed_role = regional_sts.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName=session_name,
+    )
+    creds = assumed_role['Credentials']
+
+    regional_session = boto3.Session(
+        aws_access_key_id=creds['AccessKeyId'],
+        aws_secret_access_key=creds['SecretAccessKey'],
+        aws_session_token=creds['SessionToken'],
+        region_name=region,
+    )
+
+    logger.info(f'Created regional {service_name} client for {client_id[:8]} in {region} (opt-in region)')
+    return regional_session.client(service_name, region_name=region)
 
 
 def get_ec2_client(client_id: str, region: Optional[str] = None) -> Any:

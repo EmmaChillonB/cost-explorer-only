@@ -9,7 +9,7 @@ from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 
 # Configure Loguru logging
 logger.remove()
@@ -35,9 +35,9 @@ async def get_cost_trend_with_anomalies(
         10.0,
         description="Minimum month-over-month growth percentage to flag as anomaly. Default 10."
     ),
-    max_drill_downs: int = Field(
-        2,
-        description="Maximum number of anomalies to drill-down by USAGE_TYPE. Default 2."
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Analyze cost trends over N months and auto-detect anomalies with drill-down.
@@ -46,7 +46,7 @@ async def get_cost_trend_with_anomalies(
     1. Gets today's date (no extra call needed)
     2. Retrieves monthly costs by SERVICE for the last N months
     3. Detects services with month-over-month growth above the threshold
-    4. For the top anomalies (by absolute $ impact), drills down by USAGE_TYPE
+    4. For ALL anomalies with significant $ impact, drills down by USAGE_TYPE
        to identify what changed — returning only the previous and current values
 
     Returns a compact result ready for hypothesis formulation.
@@ -56,11 +56,10 @@ async def get_cost_trend_with_anomalies(
         client_id: Client identifier for session management
         months_back: Number of months to analyze (default 6)
         anomaly_threshold_pct: Growth % threshold for anomaly detection (default 10)
-        max_drill_downs: Max anomalies to drill-down (default 2)
 
     Returns:
         Dictionary with today_date, cost_by_service_month, top_services_last_month,
-        anomalies (with drill-down details for top ones)
+        anomalies (all with drill-down details)
     """
     try:
         now = datetime.now(timezone.utc)
@@ -80,12 +79,16 @@ async def get_cost_trend_with_anomalies(
         ce = get_cost_explorer_client(client_id)
 
         # --- Step 1: Get monthly costs grouped by SERVICE ---
-        response = ce.get_cost_and_usage(
+        ce_kwargs = dict(
             TimePeriod={'Start': start_str, 'End': end_str},
             Granularity='MONTHLY',
             GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}],
             Metrics=['UnblendedCost'],
         )
+        acct_filter = build_account_filter(client_id, account_scope)
+        if acct_filter:
+            ce_kwargs['Filter'] = acct_filter
+        response = ce.get_cost_and_usage(**ce_kwargs)
 
         # Parse into {month: {service: cost}}
         monthly_costs: Dict[str, Dict[str, float]] = {}
@@ -118,7 +121,7 @@ async def get_cost_trend_with_anomalies(
                 })
 
         # --- Step 2: Detect anomalies (month-over-month growth > threshold) ---
-        anomalies = []
+        raw_anomalies = []
         for i in range(1, len(sorted_months)):
             prev_month = sorted_months[i - 1]
             curr_month = sorted_months[i]
@@ -135,7 +138,7 @@ async def get_cost_trend_with_anomalies(
                 if prev_cost <= 0:
                     # New service appeared
                     if curr_cost > 20:
-                        anomalies.append({
+                        raw_anomalies.append({
                             'service': service,
                             'period': f'{prev_month} vs {curr_month}',
                             'prev_month': prev_month,
@@ -152,7 +155,7 @@ async def get_cost_trend_with_anomalies(
                 abs_diff = curr_cost - prev_cost
 
                 if growth_pct > anomaly_threshold_pct and abs_diff > 5:
-                    anomalies.append({
+                    raw_anomalies.append({
                         'service': service,
                         'period': f'{prev_month} vs {curr_month}',
                         'prev_month': prev_month,
@@ -166,45 +169,64 @@ async def get_cost_trend_with_anomalies(
 
         # Deduplicate: keep only the highest-impact anomaly per service
         best_per_service: Dict[str, Dict] = {}
-        for a in anomalies:
+        for a in raw_anomalies:
             svc = a['service']
             if svc not in best_per_service or a['abs_diff'] > best_per_service[svc]['abs_diff']:
                 best_per_service[svc] = a
-        anomalies = sorted(best_per_service.values(), key=lambda x: x['abs_diff'], reverse=True)
+        sorted_anomalies = sorted(best_per_service.values(), key=lambda x: x['abs_diff'], reverse=True)
 
-        # --- Step 3: Drill-down top anomalies by USAGE_TYPE ---
-        drill_down_results = []
-        for anomaly in anomalies[:max_drill_downs]:
-            if anomaly['abs_diff'] < 20:
+        # --- Step 3: Drill-down ALL anomalies by USAGE_TYPE ---
+        # Use proportional threshold: skip drill-down for anomalies below 2% of
+        # last month total cost (min $5) — this ensures small accounts get drill-downs too
+        last_month_total = sum(monthly_costs.get(sorted_months[-1], {}).values()) if sorted_months else 0
+        drill_down_threshold = max(5, last_month_total * 0.02)
+
+        anomalies_output = []
+        drill_down_count = 0
+
+        for anomaly in sorted_anomalies:
+            base_entry = {
+                'service': anomaly['service'],
+                'period': anomaly['period'],
+                'prev_cost': anomaly['prev_cost'],
+                'curr_cost': anomaly['curr_cost'],
+                'growth_pct': anomaly['growth_pct'],
+                'abs_diff': anomaly['abs_diff'],
+            }
+
+            # Skip drill-down for small anomalies (proportional to account size)
+            if anomaly['abs_diff'] < drill_down_threshold:
+                base_entry['top_drivers'] = []
+                base_entry['new_components'] = []
+                anomalies_output.append(base_entry)
                 continue
 
             service = anomaly['service']
             curr_m = anomaly['curr_month']
             prev_m = anomaly['prev_month']
 
-            # Get curr month usage types
             curr_start = f'{curr_m}-01'
             curr_end_dt = datetime.strptime(curr_start, '%Y-%m-%d') + relativedelta(months=1)
             curr_end = curr_end_dt.strftime('%Y-%m-%d')
 
-            # Get prev month usage types
             prev_start = f'{prev_m}-01'
             prev_end_dt = datetime.strptime(prev_start, '%Y-%m-%d') + relativedelta(months=1)
             prev_end = prev_end_dt.strftime('%Y-%m-%d')
 
             try:
                 # Current month by usage type
+                svc_filter = build_account_filter(client_id, account_scope, {
+                    'Dimensions': {
+                        'Key': 'SERVICE',
+                        'Values': [service],
+                        'MatchOptions': ['EQUALS'],
+                    }
+                })
                 curr_resp = ce.get_cost_and_usage(
                     TimePeriod={'Start': curr_start, 'End': curr_end},
                     Granularity='MONTHLY',
                     GroupBy=[{'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}],
-                    Filter={
-                        'Dimensions': {
-                            'Key': 'SERVICE',
-                            'Values': [service],
-                            'MatchOptions': ['EQUALS'],
-                        }
-                    },
+                    Filter=svc_filter,
                     Metrics=['UnblendedCost'],
                 )
 
@@ -213,15 +235,11 @@ async def get_cost_trend_with_anomalies(
                     TimePeriod={'Start': prev_start, 'End': prev_end},
                     Granularity='MONTHLY',
                     GroupBy=[{'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}],
-                    Filter={
-                        'Dimensions': {
-                            'Key': 'SERVICE',
-                            'Values': [service],
-                            'MatchOptions': ['EQUALS'],
-                        }
-                    },
+                    Filter=svc_filter,
                     Metrics=['UnblendedCost'],
                 )
+
+                drill_down_count += 1
 
                 # Parse usage types
                 curr_usage = {}
@@ -263,42 +281,16 @@ async def get_cost_trend_with_anomalies(
                 drivers.sort(key=lambda x: x['diff'], reverse=True)
                 new_components.sort(key=lambda x: x['diff'], reverse=True)
 
-                drill_down_results.append({
-                    'service': service,
-                    'period': anomaly['period'],
-                    'prev_cost': anomaly['prev_cost'],
-                    'curr_cost': anomaly['curr_cost'],
-                    'growth_pct': anomaly['growth_pct'],
-                    'abs_diff': anomaly['abs_diff'],
-                    'top_drivers': drivers[:5],
-                    'new_components': new_components[:5],
-                })
+                base_entry['top_drivers'] = drivers[:5]
+                base_entry['new_components'] = new_components[:5]
+                anomalies_output.append(base_entry)
 
             except Exception as e:
                 logger.error(f'Error drilling down {service}: {e}')
-                drill_down_results.append({
-                    'service': service,
-                    'period': anomaly['period'],
-                    'prev_cost': anomaly['prev_cost'],
-                    'curr_cost': anomaly['curr_cost'],
-                    'growth_pct': anomaly['growth_pct'],
-                    'abs_diff': anomaly['abs_diff'],
-                    'drill_down_error': str(e),
-                })
-
-        # Build compact anomalies list (without drill-down for the rest)
-        anomalies_without_drilldown = []
-        drilled_services = {d['service'] for d in drill_down_results}
-        for a in anomalies:
-            if a['service'] not in drilled_services:
-                anomalies_without_drilldown.append({
-                    'service': a['service'],
-                    'period': a['period'],
-                    'prev_cost': a['prev_cost'],
-                    'curr_cost': a['curr_cost'],
-                    'growth_pct': a['growth_pct'],
-                    'abs_diff': a['abs_diff'],
-                })
+                base_entry['top_drivers'] = []
+                base_entry['new_components'] = []
+                base_entry['drill_down_error'] = str(e)
+                anomalies_output.append(base_entry)
 
         # --- Build compact monthly trend ---
         cost_monthly_trend = []
@@ -318,9 +310,8 @@ async def get_cost_trend_with_anomalies(
             'period': f'{sorted_months[0]} to {sorted_months[-1]}' if sorted_months else '',
             'cost_monthly_trend': cost_monthly_trend,
             'top_services_last_month': top_services_last_month,
-            'anomalies_with_drilldown': drill_down_results,
-            'anomalies_without_drilldown': anomalies_without_drilldown[:10],
-            'api_calls_made': 1 + len(drill_down_results) * 2,
+            'anomalies': anomalies_output,
+            'api_calls_made': 1 + drill_down_count * 2,
         }
 
     except Exception as e:

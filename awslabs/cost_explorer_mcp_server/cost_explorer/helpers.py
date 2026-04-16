@@ -22,7 +22,7 @@ from typing import Any, Dict
 from loguru import logger
 
 # Import from auth module for functions that need AWS client
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 
 # Configure Loguru logging
 logger.remove()
@@ -30,15 +30,17 @@ logger.add(sys.stderr, level=os.getenv("FASTMCP_LOG_LEVEL", "WARNING"))
 
 
 def get_available_dimension_values(
-    key: str, billing_period_start: str, billing_period_end: str, client_id: str
+    key: str, billing_period_start: str, billing_period_end: str, client_id: str,
+    account_scope: str = "auto",
 ) -> Dict[str, Any]:
     """Get available values for a specific dimension with pagination support.
-    
+
     Args:
         key: The dimension key to retrieve values for
         billing_period_start: Start date in YYYY-MM-DD format
         billing_period_end: End date in YYYY-MM-DD format
         client_id: Client identifier (required for assuming role)
+        account_scope: LINKED or PAYER
         
     Returns:
         Dictionary with dimension values or error
@@ -54,7 +56,10 @@ def get_available_dimension_values(
                 'TimePeriod': {'Start': billing_period_start, 'End': billing_period_end},
                 'Dimension': key.upper(),
             }
-            
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                params['Filter'] = acct_filter
+
             if next_token:
                 params['NextPageToken'] = next_token
 
@@ -76,15 +81,17 @@ def get_available_dimension_values(
 
 
 def get_available_tag_values(
-    tag_key: str, billing_period_start: str, billing_period_end: str, client_id: str
+    tag_key: str, billing_period_start: str, billing_period_end: str, client_id: str,
+    account_scope: str = "auto",
 ) -> Dict[str, Any]:
     """Get available values for a specific tag key with pagination support.
-    
+
     Args:
         tag_key: The tag key to retrieve values for
         billing_period_start: Start date in YYYY-MM-DD format
         billing_period_end: End date in YYYY-MM-DD format
         client_id: Client identifier (required for assuming role)
+        account_scope: LINKED or PAYER
         
     Returns:
         Dictionary with tag values or error
@@ -100,7 +107,10 @@ def get_available_tag_values(
                 'TimePeriod': {'Start': billing_period_start, 'End': billing_period_end},
                 'TagKey': tag_key,
             }
-            
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                params['Filter'] = acct_filter
+
             if next_token:
                 params['NextPageToken'] = next_token
 

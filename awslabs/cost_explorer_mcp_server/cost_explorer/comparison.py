@@ -25,7 +25,7 @@ from .constants import (
     DEFAULT_GROUP_BY,
     VALID_COST_METRICS,
 )
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 from .validation import (
     validate_comparison_date_range,
     validate_expression,
@@ -130,6 +130,8 @@ def _build_api_params(
     metric: str,
     group_by: Dict[str, str],
     filter_criteria: Optional[Dict[str, Any]],
+    client_id: str = "",
+    account_scope: str = "auto",
 ) -> Dict[str, Any]:
     """Build AWS API parameters from validated request parameters.
 
@@ -141,6 +143,8 @@ def _build_api_params(
         metric: Cost metric to compare
         group_by: Grouping configuration
         filter_criteria: Optional filter criteria
+        client_id: Client identifier for account filtering
+        account_scope: auto, all, or linked
 
     Returns:
         Dictionary with AWS API parameters
@@ -159,7 +163,11 @@ def _build_api_params(
     }
 
     if filter_criteria:
-        params['Filter'] = filter_criteria
+        params['Filter'] = build_account_filter(client_id, account_scope, filter_criteria)
+    elif client_id:
+        acct_filter = build_account_filter(client_id, account_scope)
+        if acct_filter:
+            params['Filter'] = acct_filter
 
     return params
 
@@ -183,6 +191,10 @@ async def get_cost_and_usage_comparisons(
     filter_expression: Optional[Dict[str, Any]] = Field(
         None,
         description='Filter criteria as a Python dictionary to narrow down AWS cost comparisons. Supports filtering by Dimensions (SERVICE, REGION, etc.), Tags, or CostCategories. You can use logical operators (And, Or, Not) for complex filters. Same format as get_cost_and_usage filter_expression.',
+    ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Compare AWS costs and usage between two time periods.
@@ -248,6 +260,8 @@ async def get_cost_and_usage_comparisons(
             validated_metric,
             validated_group_by,
             validated_filter_criteria,
+            client_id,
+            account_scope,
         )
 
         # Get comparison data
@@ -408,6 +422,10 @@ async def get_cost_comparison_drivers(
         None,
         description='Filter criteria as a Python dictionary to narrow down AWS cost driver analysis. Supports filtering by Dimensions (SERVICE, REGION, etc.), Tags, or CostCategories. You can use logical operators (And, Or, Not) for complex filters. Same format as get_cost_and_usage filter_expression.',
     ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
+    ),
 ) -> Dict[str, Any]:
     """Analyze what drove cost changes between two time periods.
 
@@ -479,6 +497,8 @@ async def get_cost_comparison_drivers(
             validated_metric,
             validated_group_by,
             validated_filter_criteria,
+            client_id,
+            account_scope,
         )
 
         # Get cost driver data

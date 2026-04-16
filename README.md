@@ -1,80 +1,80 @@
 # Cost Explorer MCP Server
 
-MCP server for analyzing AWS costs and usage data through the AWS Cost Explorer API, designed for **Kubernetes deployments using IAM Roles Anywhere** and **multi-client (multi-account) role assumption**.
+Servidor MCP para analizar costes y uso de AWS a traves de la API de AWS Cost Explorer, disenado para **despliegues en Kubernetes con IAM Roles Anywhere** y **asuncion de roles multi-cuenta**.
 
-## Table of Contents
+## Tabla de Contenidos
 
-- [Features](#features)
-- [Authentication Architecture](#authentication-architecture)
-- [Configuration](#configuration)
-- [Validation and Cost Optimization](#validation-and-cost-optimization)
-- [Available Tools](#available-tools)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [Usage Examples](#usage-examples)
-- [License](#license)
-
----
-
-## Features
-
-### Analyze AWS costs and usage
-- Detailed breakdown of costs by service, region, and other dimensions
-- Query historical cost data for specific time periods
-- Filter costs by dimensions, tags, and cost categories
-
-### Compare costs between time periods
-- Leverage AWS Cost Explorer's [Cost Comparison feature](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-cost-comparison.html)
-- Compare costs between two time periods to identify changes and trends
-- Analyze cost drivers (top 10) to understand what caused increases/decreases
-
-### Forecast future costs
-- Generate cost forecasts based on historical usage patterns
-- Predictions with confidence intervals (80% or 95%)
-- Daily and monthly forecast granularity
-
-### Multi-client architecture
-- Support for multiple AWS accounts with different IAM roles
-- Thread-safe session management with LRU cache (max 1000 sessions)
-- Automatic token refresh 5 minutes before expiration
-- Concurrent request deduplication (only one STS call per client)
+- [Funcionalidades](#funcionalidades)
+- [Arquitectura de Autenticacion](#arquitectura-de-autenticacion)
+- [Configuracion](#configuracion)
+- [Validacion y Optimizacion de Costes](#validacion-y-optimizacion-de-costes)
+- [Herramientas Disponibles](#herramientas-disponibles)
+- [Despliegue](#despliegue)
+- [Tests](#tests)
+- [Ejemplos de Uso](#ejemplos-de-uso)
+- [Licencia](#licencia)
 
 ---
 
-## Authentication Architecture
+## Funcionalidades
 
-### How it works
+### Analisis de costes y uso de AWS
+- Desglose detallado de costes por servicio, region y otras dimensiones
+- Consulta de datos historicos de costes para periodos de tiempo especificos
+- Filtrado de costes por dimensiones, etiquetas y categorias de coste
 
-This server is designed to run in **Kubernetes**, where the pod obtains **base AWS credentials via IAM Roles Anywhere**, and then **for each request**, the server assumes a client-specific IAM role (cross-account) based on `client_id`.
+### Comparacion de costes entre periodos
+- Uso de la funcionalidad de [Cost Comparison](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-cost-comparison.html) de AWS Cost Explorer
+- Comparacion de costes entre dos periodos para identificar cambios y tendencias
+- Analisis de los principales factores de coste (top 10) para entender incrementos/decrementos
 
-**Authentication flow:**
-1. Pod gets base credentials via IAM Roles Anywhere (no AWS_PROFILE inside the container)
-2. You provide a `clients.json` mapping: `client_id -> role_arn`
-3. For each tool request:
-   - You pass `client_id`
-   - The server looks up `role_arn` in `clients.json`
-   - The server calls `sts:AssumeRole` into the client role
-   - A Cost Explorer (ce) client is created and cached until token expiration
-   - Tokens are refreshed automatically before expiration
+### Prevision de costes futuros
+- Generacion de previsiones basadas en patrones de uso historicos
+- Predicciones con intervalos de confianza (80% o 95%)
+- Granularidad de prevision diaria y mensual
 
-### Prerequisites
+### Arquitectura multi-cuenta
+- Soporte para multiples cuentas AWS con diferentes roles IAM
+- Gestion de sesiones thread-safe con cache LRU (maximo 1000 sesiones)
+- Refresco automatico de tokens 5 minutos antes de su expiracion
+- Deduplicacion de peticiones concurrentes (una sola llamada STS por cuenta)
 
-- **IAM Roles Anywhere** configured in your AWS account
-- **Kubernetes** with Roles Anywhere credentials mounted (implementation-specific)
-- **Base role (runner role)**: the role the pod runs as, with permissions to assume client roles
-  - `sts:AssumeRole` on each client role ARN
-- **Trust policy** of each client role: allows assumption by the base role (with `ExternalId` if required)
+---
 
-### Concurrency handling
+## Arquitectura de Autenticacion
 
-The server handles concurrent requests safely:
-- **Thread-safe caches**: All client caches use locks to prevent race conditions
-- **Refresh deduplication**: If multiple requests need to refresh the same client token, only one STS call is made
-- **LRU eviction**: Maximum 1000 cached sessions with automatic eviction of least recently used
+### Como funciona
 
-### Required IAM Permissions
+Este servidor esta disenado para ejecutarse en **Kubernetes**, donde el pod obtiene **credenciales base de AWS via IAM Roles Anywhere**, y para **cada peticion**, el servidor asume un rol IAM especifico (cross-account) basado en el `client_id`.
 
-**Client role** (the role being assumed):
+**Flujo de autenticacion:**
+1. El pod obtiene credenciales base via IAM Roles Anywhere (sin AWS_PROFILE dentro del contenedor)
+2. Se proporciona un fichero `clients.json` con el mapeo: `client_id -> role_arn`
+3. Para cada peticion de herramienta:
+   - Se envia el `client_id`
+   - El servidor busca el `role_arn` en `clients.json`
+   - El servidor llama a `sts:AssumeRole` hacia el rol correspondiente
+   - Se crea un cliente de Cost Explorer (ce) y se cachea hasta la expiracion del token
+   - Los tokens se refrescan automaticamente antes de expirar
+
+### Prerequisitos
+
+- **IAM Roles Anywhere** configurado en tu cuenta AWS
+- **Kubernetes** con credenciales de Roles Anywhere montadas
+- **Rol base (runner role)**: el rol con el que se ejecuta el pod, con permisos para asumir los roles de cuenta
+  - `sts:AssumeRole` sobre cada ARN de rol de cuenta
+- **Trust policy** de cada rol de cuenta: permite la asuncion por el rol base (con `ExternalId` si es necesario)
+
+### Gestion de concurrencia
+
+El servidor maneja las peticiones concurrentes de forma segura:
+- **Caches thread-safe**: Todas las caches usan locks para prevenir condiciones de carrera
+- **Deduplicacion de refresco**: Si multiples peticiones necesitan refrescar el mismo token, solo se realiza una llamada STS
+- **Eviccion LRU**: Maximo 1000 sesiones cacheadas con eviccion automatica de las menos usadas
+
+### Permisos IAM necesarios
+
+**Rol de cuenta** (el rol que se asume):
 ```json
 {
   "Version": "2012-10-17",
@@ -95,7 +95,7 @@ The server handles concurrent requests safely:
 }
 ```
 
-**Base role** (the pod's identity):
+**Rol base** (identidad del pod):
 ```json
 {
   "Version": "2012-10-17",
@@ -104,15 +104,15 @@ The server handles concurrent requests safely:
       "Effect": "Allow",
       "Action": "sts:AssumeRole",
       "Resource": [
-        "arn:aws:iam::111111111111:role/CostExplorerRole",
-        "arn:aws:iam::222222222222:role/CostExplorerRole"
+        "arn:aws:iam::ACCOUNT_ID_1:role/CostExplorerRole",
+        "arn:aws:iam::ACCOUNT_ID_2:role/CostExplorerRole"
       ]
     }
   ]
 }
 ```
 
-**Trust policy** on each client role:
+**Trust policy** en cada rol de cuenta:
 ```json
 {
   "Version": "2012-10-17",
@@ -120,7 +120,7 @@ The server handles concurrent requests safely:
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::BASE_ACCOUNT:role/BaseRole"
+        "AWS": "arn:aws:iam::BASE_ACCOUNT_ID:role/BaseRole"
       },
       "Action": "sts:AssumeRole"
     }
@@ -130,76 +130,81 @@ The server handles concurrent requests safely:
 
 ---
 
-## Configuration
+## Configuracion
 
-### Multi-Client Configuration (clients.json)
+### Configuracion multi-cuenta (clients.json)
 
-Create a `clients.json` file and mount it into the container. The server uses `client_id` to look up the role to assume.
+Crea un fichero `clients.json` y montalo en el contenedor. El servidor utiliza el `client_id` para buscar el rol a asumir.
 
-#### Example `clients.json`
+#### Ejemplo de `clients.json`
 ```json
 {
   "clients": {
-    "client-finance": {
-      "role_arn": "arn:aws:iam::111111111111:role/team-1-cost-explorer",
-      "description": "team 1 access"
+    "cuenta-produccion": {
+      "role_arn": "arn:aws:iam::ACCOUNT_ID_1:role/CostExplorerRole",
+      "account_id": "ACCOUNT_ID_1",
+      "account_type": "payer",
+      "description": "Cuenta de gestion (payer)"
     },
-    "client-engineering": {
-      "role_arn": "arn:aws:iam::222222222222:role/team-2-cost-explorer",
-      "description": "team 2 access"
+    "cuenta-desarrollo": {
+      "role_arn": "arn:aws:iam::ACCOUNT_ID_2:role/CostExplorerRole",
+      "account_id": "ACCOUNT_ID_2",
+      "account_type": "linked",
+      "payer_id": "cuenta-produccion",
+      "description": "Cuenta de desarrollo (linked)"
     }
   }
 }
 ```
 
-### Environment Variables
+### Variables de Entorno
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `CLIENTS_CONFIG_PATH` | Yes | - | Path to `clients.json` inside the container |
-| `AWS_REGION` | No | `us-east-1` | Default AWS region |
-| `FASTMCP_LOG_LEVEL` | No | `WARNING` | Logging level (ERROR, WARNING, INFO, DEBUG) |
-| `VALIDATE_FILTER_VALUES` | No | `false` | Enable AWS API calls for filter validation (see below) |
-| `MCP_TRANSPORT` | No | `sse` (container) / `stdio` (local) | Transport mode: `stdio`, `sse`, or `streamable-http` |
-| `MCP_HOST` | No | `0.0.0.0` (container) / `127.0.0.1` (local) | Host to bind for SSE/HTTP transports |
-| `MCP_PORT` | No | `8000` | Port to listen on for SSE/HTTP transports |
-| `MCP_MOUNT_PATH` | No | - | Optional mount path for SSE/HTTP transport |
+| Variable | Requerida | Valor por defecto | Descripcion |
+|----------|-----------|-------------------|-------------|
+| `CLIENTS_CONFIG_PATH` | Si | - | Ruta al fichero `clients.json` dentro del contenedor |
+| `AWS_REGION` | No | `us-east-1` | Region AWS por defecto |
+| `FASTMCP_LOG_LEVEL` | No | `WARNING` | Nivel de logging (ERROR, WARNING, INFO, DEBUG) |
+| `VALIDATE_FILTER_VALUES` | No | `false` | Habilitar llamadas AWS para validacion de filtros (ver abajo) |
+| `MCP_TRANSPORT` | No | `sse` (contenedor) / `stdio` (local) | Modo de transporte: `stdio`, `sse`, o `streamable-http` |
+| `MCP_HOST` | No | `0.0.0.0` (contenedor) / `127.0.0.1` (local) | Host de escucha para transportes SSE/HTTP |
+| `MCP_PORT` | No | `8000` | Puerto de escucha para transportes SSE/HTTP |
+| `MCP_MOUNT_PATH` | No | - | Ruta de montaje opcional para transporte SSE/HTTP |
 
 ---
 
-## Available Tools
+## Herramientas Disponibles
 
-The Cost Explorer MCP Server provides the following tools:
+El servidor MCP de Cost Explorer proporciona las siguientes herramientas:
 
-### Utilities
-| Tool | Description |
-|------|-----------|
-| `get_today_date` | Get the current date and month to determine relevant data |
-| `list_active_sessions` | List all active Cost Explorer client sessions (for monitoring multiple concurrent clients) |
-| `close_session` | Close a specific client session and free up resources |
+### Utilidades
+| Herramienta | Descripcion |
+|-------------|-------------|
+| `get_today_date` | Obtiene la fecha actual para determinar datos relevantes |
+| `list_active_sessions` | Lista todas las sesiones activas de Cost Explorer (para monitorizar multiples cuentas concurrentes) |
+| `close_session` | Cierra una sesion especifica y libera recursos |
 
-### Cost Queries
-| Tool | Description |
-|------|-----------|
-| `get_dimension_values` | Get available values for a specific dimension (e.g., SERVICE, REGION) |
-| `get_tag_values` | Get available values for a specific tag key |
-| `get_cost_and_usage` | Retrieve AWS cost and usage data with filtering and grouping options |
+### Consultas de Costes
+| Herramienta | Descripcion |
+|-------------|-------------|
+| `get_dimension_values` | Obtiene los valores disponibles para una dimension especifica (ej. SERVICE, REGION) |
+| `get_tag_values` | Obtiene los valores disponibles para una clave de etiqueta |
+| `get_cost_and_usage` | Recupera datos de costes y uso de AWS con opciones de filtrado y agrupacion |
 
-### Analysis and Comparison
-| Tool | Description |
-|------|-----------|
-| `get_cost_and_usage_comparisons` | Compare costs between two time periods to identify changes and trends |
-| `get_cost_comparison_drivers` | Analyze what drove cost changes between periods (top 10 most significant drivers) |
-| `get_cost_forecast` | Generate cost forecasts based on historical usage patterns |
+### Analisis y Comparacion
+| Herramienta | Descripcion |
+|-------------|-------------|
+| `get_cost_and_usage_comparisons` | Compara costes entre dos periodos para identificar cambios y tendencias |
+| `get_cost_comparison_drivers` | Analiza que provoco los cambios de coste entre periodos (top 10 factores mas significativos) |
+| `get_cost_forecast` | Genera previsiones de costes basadas en patrones de uso historicos |
 
-### Multi-Client Usage
+### Uso Multi-Cuenta
 
-**Important**: Always pass `client_id` when calling a tool. The server will assume the corresponding role from `clients.json`.
+**Importante**: Siempre hay que pasar el `client_id` al invocar una herramienta. El servidor asumira el rol correspondiente de `clients.json`.
 
-#### Example: `get_cost_and_usage`
+#### Ejemplo: `get_cost_and_usage`
 ```json
 {
-  "client_id": "client-finance",
+  "client_id": "cuenta-produccion",
   "date_range": {
     "start_date": "2026-01-01",
     "end_date": "2026-01-31"
@@ -212,74 +217,73 @@ The Cost Explorer MCP Server provides the following tools:
 
 ---
 
-## Validation and Cost Optimization
+## Validacion y Optimizacion de Costes
 
-### How validation works
+### Como funciona la validacion
 
-Each Cost Explorer API call costs **$0.01**. The server performs validation on requests before sending them to AWS.
+Cada llamada a la API de Cost Explorer cuesta **$0.01**. El servidor realiza validaciones en las peticiones antes de enviarlas a AWS.
 
-**Local validations (always performed, no AWS calls):**
-- Date format (YYYY-MM-DD)
-- Date range logic (start before end)
-- Granularity-specific constraints (e.g., HOURLY max 14 days)
-- Dimension key validation (SERVICE, REGION, etc. are valid keys)
-- Filter structure validation (And, Or, Not operators)
-- Group by validation
+**Validaciones locales (siempre se ejecutan, sin llamadas a AWS):**
+- Formato de fecha (YYYY-MM-DD)
+- Logica de rango de fechas (inicio antes que fin)
+- Restricciones por granularidad (ej. HOURLY maximo 14 dias)
+- Validacion de claves de dimension (SERVICE, REGION, etc.)
+- Validacion de estructura de filtros (operadores And, Or, Not)
+- Validacion de agrupacion (group by)
 
-**AWS validations (optional, disabled by default):**
-- Validate that dimension values exist (e.g., "Amazon EC2" is a valid SERVICE value)
-- Validate that tag values exist
+**Validaciones AWS (opcionales, deshabilitadas por defecto):**
+- Validar que los valores de dimension existen (ej. "Amazon EC2" es un valor valido de SERVICE)
+- Validar que los valores de etiqueta existen
 
-### Controlling validation
+### Control de la validacion
 
-By default, AWS validations are **disabled** to reduce costs. If a user passes an invalid value, AWS will return an error which the server will relay.
+Por defecto, las validaciones AWS estan **deshabilitadas** para reducir costes. Si se pasa un valor invalido, AWS devolvera un error que el servidor retransmitira.
 
-To enable AWS validations:
+Para habilitar las validaciones AWS:
 ```bash
 export VALIDATE_FILTER_VALUES=true
 ```
 
-**Recommendation**: Keep disabled (`false`) in production. Invalid values will result in AWS errors, which is acceptable and saves money.
+**Recomendacion**: Mantener deshabilitado (`false`) en produccion. Los valores invalidos resultaran en errores de AWS, lo cual es aceptable y ahorra dinero.
 
-### Cost estimation
+### Estimacion de costes
 
-| Operation | API Calls | Cost |
-|-----------|-----------|------|
-| Simple cost query | 1 | $0.01 |
-| Cost query with filter (validation disabled) | 1 | $0.01 |
-| Cost query with filter (validation enabled) | 2+ | $0.02+ |
-| Cost comparison | 2 | $0.02 |
-| Cost forecast | 1 | $0.01 |
+| Operacion | Llamadas API | Coste |
+|-----------|-------------|-------|
+| Consulta simple de costes | 1 | $0.01 |
+| Consulta con filtro (validacion deshabilitada) | 1 | $0.01 |
+| Consulta con filtro (validacion habilitada) | 2+ | $0.02+ |
+| Comparacion de costes | 2 | $0.02 |
+| Prevision de costes | 1 | $0.01 |
 
 ---
 
-## Deployment
+## Despliegue
 
-### Transport Modes
+### Modos de Transporte
 
-The server supports three transport modes:
+El servidor soporta tres modos de transporte:
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `stdio` | Standard input/output | Local development, CLI tools |
-| `sse` | Server-Sent Events over HTTP | **Default for containers**, web clients, MCP Inspector |
-| `streamable-http` | Streamable HTTP transport | Alternative HTTP transport |
+| Modo | Descripcion | Caso de uso |
+|------|-------------|-------------|
+| `stdio` | Entrada/salida estandar | Desarrollo local, herramientas CLI |
+| `sse` | Server-Sent Events sobre HTTP | **Por defecto en contenedores**, clientes web, MCP Inspector |
+| `streamable-http` | Transporte HTTP streamable | Transporte HTTP alternativo |
 
-For container deployments, the server defaults to SSE mode listening on port 8000.
+Para despliegues en contenedores, el servidor usa SSE por defecto escuchando en el puerto 8000.
 
-### Docker Build
+### Build de Docker
 
 ```bash
 docker build -t cost-explorer-mcp:latest .
 ```
 
-### Docker Run (SSE mode - recommended for containers)
+### Docker Run (modo SSE - recomendado para contenedores)
 
 ```bash
 docker run -d \
   -p 8000:8000 \
   -e CLIENTS_CONFIG_PATH=/config/clients.json \
-  -e AWS_PROFILE=your-base-profile \
   -e AWS_SHARED_CREDENTIALS_FILE=/home/app/.aws/credentials \
   -e AWS_CONFIG_FILE=/home/app/.aws/config \
   -e FASTMCP_LOG_LEVEL=INFO \
@@ -288,15 +292,14 @@ docker run -d \
   cost-explorer-mcp:latest
 ```
 
-The server will be available at `http://localhost:8000/sse`.
+El servidor estara disponible en `http://localhost:8000/sse`.
 
-### Docker Run (stdio mode - for local testing)
+### Docker Run (modo stdio - para testing local)
 
 ```bash
 docker run -it --rm \
   -e MCP_TRANSPORT=stdio \
   -e CLIENTS_CONFIG_PATH=/config/clients.json \
-  -e AWS_PROFILE=your-base-profile \
   -e AWS_SHARED_CREDENTIALS_FILE=/home/app/.aws/credentials \
   -e AWS_CONFIG_FILE=/home/app/.aws/config \
   -v $(pwd)/clients.json:/config/clients.json:ro \
@@ -304,23 +307,23 @@ docker run -it --rm \
   cost-explorer-mcp:latest
 ```
 
-### Testing SSE Connection
+### Probar la conexion SSE
 
-Using the MCP Inspector:
+Usando el MCP Inspector:
 ```bash
 npx @modelcontextprotocol/inspector
 ```
-Then select **SSE** transport and connect to `http://localhost:8000/sse`.
+Seleccionar transporte **SSE** y conectar a `http://localhost:8000/sse`.
 
-Using curl:
+Usando curl:
 ```bash
-# Should return the session endpoint
+# Deberia devolver el endpoint de sesion
 curl -N http://localhost:8000/sse
 ```
 
-### K3s with IAM Roles Anywhere
+### K3s con IAM Roles Anywhere
 
-For K3s with IAM Roles Anywhere, mount the credentials:
+Para K3s con IAM Roles Anywhere, montar las credenciales:
 
 ```yaml
 apiVersion: apps/v1
@@ -392,9 +395,9 @@ spec:
     name: http
 ```
 
-### EKS with IRSA
+### EKS con IRSA
 
-For EKS, use IAM Roles for Service Accounts (IRSA):
+Para EKS, usar IAM Roles for Service Accounts (IRSA):
 
 ```yaml
 apiVersion: v1
@@ -402,81 +405,92 @@ kind: ServiceAccount
 metadata:
   name: cost-explorer-sa
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/CostExplorerBaseRole
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/CostExplorerBaseRole
 ```
 
 ---
 
-## Testing
+## Tests
 
-### Running Unit Tests
+### Ejecutar tests unitarios
 
 ```bash
-# Create virtual environment and install dependencies
+# Crear entorno virtual e instalar dependencias
 uv sync --dev
 
-# Activate the virtual environment
+# Activar el entorno virtual
 source .venv/bin/activate
 
-# Run all tests (293 tests)
+# Ejecutar todos los tests (487 tests)
 pytest tests/ -v -o "addopts="
 
-# Run auth tests specifically (56 tests, 96% coverage)
+# Ejecutar tests de autenticacion (56 tests, 96% cobertura)
 pytest tests/test_auth_multiclient.py -v -o "addopts="
 
-# Run with coverage report
+# Ejecutar con informe de cobertura
 pytest tests/ --cov=awslabs/cost_explorer_mcp_server --cov-report=term-missing -o "addopts="
 ```
 
-### Test Coverage
+### Cobertura de Tests
 
-The test suite includes 293 tests covering all handlers and the multi-client authentication system:
+La suite de tests incluye 487 tests con una cobertura global del 92%, cubriendo todos los handlers, el sistema de autenticacion multi-cuenta, inventario de recursos, analisis de utilizacion y optimizacion de costes:
 
-| Module | Tests | Coverage |
-|--------|-------|---------|
-| `auth.py` (multi-client) | 56 | 96% |
-| `cost_usage_handler.py` | 50+ | 95%+ |
-| `comparison_handler.py` | 30+ | 95%+ |
-| `forecasting_handler.py` | 20+ | 95%+ |
-| `metadata_handler.py` | 20+ | 95%+ |
-| `utility_handler.py` | 10+ | 100% |
-| `server.py` | 10+ | 95%+ |
-
----
-
-## Usage Examples
-
-Here are some examples of how to use the Cost Explorer MCP Server with natural language queries:
-
-### Cost Analysis Examples
-
-```
-Show me my AWS costs for the last 3 months grouped by service in us-east-1 region
-Break down my S3 costs by storage class for Q1 2025
-Show me costs for production resources tagged with Environment=prod
-What were my costs for reserved instances vs on-demand in May?
-What was my EC2 instance usage by instance type?
-```
-
-### Cost Comparison Examples
-
-```
-Compare my AWS costs between April and May 2025
-How did my EC2 costs change from last month to this month?
-Why did my AWS bill increase in June compared to May?
-What caused the spike in my S3 costs last month?
-```
-
-### Forecasting Examples
-
-```
-Forecast my AWS costs for next month
-Predict my EC2 spending for the next quarter
-What will my total AWS bill be for the rest of 2025?
-```
+| Modulo | Cobertura |
+|--------|-----------|
+| `auth.py` (multi-cuenta) | 86% |
+| `cost_explorer/usage.py` | 95% |
+| `cost_explorer/comparison.py` | 94% |
+| `cost_explorer/forecast.py` | 98% |
+| `cost_explorer/trend.py` | 97% |
+| `cost_explorer/metadata.py` | 97% |
+| `cost_explorer/validation.py` | 96% |
+| `cost_explorer/helpers.py` | 98% |
+| `cost_explorer/models.py` | 100% |
+| `savings.py` | 97% |
+| `inventory/ec2.py` | 98% |
+| `inventory/ebs.py` | 93% |
+| `inventory/elb.py` | 82% |
+| `inventory/network.py` | 86% |
+| `inventory/rds.py` | 96% |
+| `inventory/s3.py` | 79% |
+| `utilization/*` | 83-100% |
+| `server.py` | 93% |
 
 ---
 
-## License
+## Ejemplos de Uso
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+Algunos ejemplos de como usar el servidor MCP de Cost Explorer con consultas en lenguaje natural:
+
+### Ejemplos de analisis de costes
+
+```
+Muestrame los costes de AWS de los ultimos 3 meses agrupados por servicio en la region us-east-1
+Desglosa los costes de S3 por clase de almacenamiento del primer trimestre de 2025
+Muestrame los costes de los recursos de produccion etiquetados con Environment=prod
+Cuales fueron mis costes de instancias reservadas vs bajo demanda en mayo?
+Cual fue el uso de instancias EC2 por tipo de instancia?
+```
+
+### Ejemplos de comparacion de costes
+
+```
+Compara mis costes de AWS entre abril y mayo de 2025
+Como cambiaron mis costes de EC2 del mes pasado a este mes?
+Por que aumento mi factura de AWS en junio comparado con mayo?
+Que causo el pico en mis costes de S3 el mes pasado?
+```
+
+### Ejemplos de previsiones
+
+```
+Haz una prevision de mis costes de AWS para el proximo mes
+Predice mi gasto en EC2 para el proximo trimestre
+Cual sera mi factura total de AWS para el resto de 2025?
+```
+
+---
+
+## Licencia
+
+Este proyecto esta licenciado bajo la Licencia Apache 2.0 - consulta el fichero LICENSE para mas detalles.

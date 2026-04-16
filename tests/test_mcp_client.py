@@ -4,9 +4,11 @@
 import asyncio
 import json
 import aiohttp
+import pytest
 from datetime import datetime, timedelta
 
 
+@pytest.mark.skip(reason='Integration test: requires a running MCP server on localhost:8000')
 async def test_mcp_server():
     """Test MCP server via SSE transport with multiple clients."""
     

@@ -29,7 +29,7 @@ from .constants import (
     VALID_GRANULARITIES,
     VALID_MATCH_OPTIONS,
 )
-from ..auth import get_cost_explorer_client
+from ..auth import get_cost_explorer_client, build_account_filter
 from .validation import validate_expression, validate_group_by
 from .helpers import format_date_for_api
 from .models import DateRange
@@ -68,6 +68,10 @@ async def get_cost_and_usage(
     metric: str = Field(
         'UnblendedCost',
         description=f'The metric to return in the query. Valid values are {", ".join(VALID_COST_METRICS)}. IMPORTANT: For UsageQuantity, the service aggregates usage numbers without considering units, making results meaningless when mixing different unit types (e.g., compute hours + data transfer GB). To get meaningful UsageQuantity metrics, you MUST filter by USAGE_TYPE or group by USAGE_TYPE/USAGE_TYPE_GROUP to ensure consistent units.',
+    ),
+    account_scope: str = Field(
+        "auto",
+        description="auto: filters payer accounts to own costs only (default). all: consolidated view of all linked accounts. linked: force single-account filter."
     ),
 ) -> Dict[str, Any]:
     """Retrieve AWS cost and usage data.
@@ -170,7 +174,11 @@ async def get_cost_and_usage(
         }
 
         if filter_criteria:
-            common_params['Filter'] = filter_criteria
+            common_params['Filter'] = build_account_filter(client_id, account_scope, filter_criteria)
+        else:
+            acct_filter = build_account_filter(client_id, account_scope)
+            if acct_filter:
+                common_params['Filter'] = acct_filter
 
         # Get cost data
         grouped_costs = {}

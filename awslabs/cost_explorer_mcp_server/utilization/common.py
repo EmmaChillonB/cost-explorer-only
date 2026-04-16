@@ -86,11 +86,13 @@ def get_metric_statistics(
             avg_values = [dp.get('Average', 0) for dp in datapoints if 'Average' in dp]
             max_values = [dp.get('Maximum', 0) for dp in datapoints if 'Maximum' in dp]
             min_values = [dp.get('Minimum', 0) for dp in datapoints if 'Minimum' in dp]
-            
+            sum_values = [dp.get('Sum', 0) for dp in datapoints if 'Sum' in dp]
+
             summary = {
                 'overall_average': round(sum(avg_values) / len(avg_values), 2) if avg_values else None,
                 'overall_maximum': round(max(max_values), 2) if max_values else None,
                 'overall_minimum': round(min(min_values), 2) if min_values else None,
+                'overall_sum': round(sum(sum_values), 2) if sum_values else None,
                 'datapoint_count': len(datapoints),
             }
         else:
@@ -98,6 +100,7 @@ def get_metric_statistics(
                 'overall_average': None,
                 'overall_maximum': None,
                 'overall_minimum': None,
+                'overall_sum': None,
                 'datapoint_count': 0,
             }
         
