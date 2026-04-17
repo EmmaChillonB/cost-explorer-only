@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from awslabs.cost_explorer_mcp_server.savings import get_savings_commitments, _safe_float
+from cost_optimizer.cost_explorer.savings import get_savings_commitments, _safe_float
 
 
 class TestSafeFloat:
@@ -160,19 +160,19 @@ class TestGetSavingsCommitments:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.savings.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.is_payer_account',
+            'cost_optimizer.cost_explorer.savings.is_payer_account',
             return_value=False,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.build_account_filter',
+            'cost_optimizer.cost_explorer.savings.build_account_filter',
             return_value=None,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_account_id',
+            'cost_optimizer.cost_explorer.savings.get_account_id',
             return_value='123456789012',
         ), patch(
-            'awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client',
+            'cost_optimizer.aws_clients.get_aws_client',
             return_value=mock_sp_client,
         ):
             ctx = MagicMock()
@@ -204,16 +204,16 @@ class TestGetSavingsCommitments:
         mock_ce.get_reservation_purchase_recommendation.side_effect = Exception('RI rec error')
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.savings.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.is_payer_account',
+            'cost_optimizer.cost_explorer.savings.is_payer_account',
             return_value=False,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.build_account_filter',
+            'cost_optimizer.cost_explorer.savings.build_account_filter',
             return_value=None,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_account_id',
+            'cost_optimizer.cost_explorer.savings.get_account_id',
             return_value='123456789012',
         ):
             ctx = MagicMock()
@@ -229,7 +229,7 @@ class TestGetSavingsCommitments:
     async def test_top_level_exception(self):
         """Test top-level exception handling."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.savings.get_cost_explorer_client',
             side_effect=Exception('Connection failed'),
         ):
             ctx = MagicMock()
@@ -252,16 +252,16 @@ class TestGetSavingsCommitments:
         mock_ce.get_reservation_purchase_recommendation.return_value = {'Recommendations': []}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.savings.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.is_payer_account',
+            'cost_optimizer.cost_explorer.savings.is_payer_account',
             return_value=True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.build_account_filter',
+            'cost_optimizer.cost_explorer.savings.build_account_filter',
             return_value=None,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.savings.get_account_id',
+            'cost_optimizer.cost_explorer.savings.get_account_id',
             return_value='123456789012',
         ):
             ctx = MagicMock()

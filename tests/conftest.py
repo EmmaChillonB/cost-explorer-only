@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 @pytest.fixture(autouse=True)
 def reset_client_cache():
     """Reset the global client cache before each test."""
-    import awslabs.cost_explorer_mcp_server.auth as auth_module
+    import cost_optimizer.auth as auth_module
 
     # Reset the global client caches to ensure clean state for each test
     with auth_module._client_lock:

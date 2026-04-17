@@ -4,12 +4,12 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-from awslabs.cost_explorer_mcp_server.cost_explorer.models import DateRange, DimensionKey
-from awslabs.cost_explorer_mcp_server.cost_explorer.metadata import (
+from cost_optimizer.cost_explorer.models import DateRange, DimensionKey
+from cost_optimizer.cost_explorer.metadata import (
     get_dimension_values as ce_get_dimension_values,
     get_tag_values as ce_get_tag_values,
 )
-from awslabs.cost_explorer_mcp_server.cost_explorer.helpers import (
+from cost_optimizer.cost_explorer.helpers import (
     get_available_dimension_values,
     get_available_tag_values,
     format_date_for_api,
@@ -17,7 +17,7 @@ from awslabs.cost_explorer_mcp_server.cost_explorer.helpers import (
     extract_usage_context_from_selector,
     create_detailed_group_key,
 )
-from awslabs.cost_explorer_mcp_server.cost_explorer.validation import (
+from cost_optimizer.cost_explorer.validation import (
     validate_dimension_key,
     validate_date_format,
     validate_date_range,
@@ -355,10 +355,10 @@ class TestCostExplorerHelpers:
             'DimensionValues': [{'Value': 'Amazon EC2'}, {'Value': 'Amazon S3'}],
         }
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.helpers.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.build_account_filter',
+            'cost_optimizer.cost_explorer.helpers.build_account_filter',
             return_value=None,
         ):
             result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test')
@@ -372,10 +372,10 @@ class TestCostExplorerHelpers:
             {'DimensionValues': [{'Value': 'Amazon S3'}]},
         ]
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.helpers.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.build_account_filter',
+            'cost_optimizer.cost_explorer.helpers.build_account_filter',
             return_value=None,
         ):
             result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test')
@@ -384,7 +384,7 @@ class TestCostExplorerHelpers:
 
     def test_get_available_dimension_values_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.helpers.get_cost_explorer_client',
             side_effect=Exception('fail'),
         ):
             result = get_available_dimension_values('SERVICE', '2025-01-01', '2025-01-31', 'test')
@@ -394,10 +394,10 @@ class TestCostExplorerHelpers:
         mock_ce = MagicMock()
         mock_ce.get_tags.return_value = {'Tags': ['prod', 'dev']}
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.helpers.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.build_account_filter',
+            'cost_optimizer.cost_explorer.helpers.build_account_filter',
             return_value=None,
         ):
             result = get_available_tag_values('Environment', '2025-01-01', '2025-01-31', 'test')
@@ -406,7 +406,7 @@ class TestCostExplorerHelpers:
 
     def test_get_available_tag_values_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.helpers.get_cost_explorer_client',
             side_effect=Exception('fail'),
         ):
             result = get_available_tag_values('Env', '2025-01-01', '2025-01-31', 'test')
@@ -532,10 +532,10 @@ class TestCostExplorerMetadata:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -553,10 +553,10 @@ class TestCostExplorerMetadata:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -575,10 +575,10 @@ class TestCostExplorerMetadata:
         ]
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -590,7 +590,7 @@ class TestCostExplorerMetadata:
     @pytest.mark.asyncio
     async def test_get_dimension_values_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             side_effect=Exception('fail'),
         ):
             ctx = MagicMock()
@@ -605,10 +605,10 @@ class TestCostExplorerMetadata:
         mock_ce.get_tags.return_value = {'Tags': ['prod', 'dev']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -623,10 +623,10 @@ class TestCostExplorerMetadata:
         mock_ce.get_tags.return_value = {'Tags': ['v1']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -640,7 +640,7 @@ class TestCostExplorerMetadata:
     @pytest.mark.asyncio
     async def test_get_tag_values_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             side_effect=Exception('fail'),
         ):
             ctx = MagicMock()
@@ -657,10 +657,10 @@ class TestCostExplorerMetadata:
         mock_filter = {'Dimensions': {'Key': 'LINKED_ACCOUNT', 'Values': ['123']}}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.metadata.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.metadata.build_account_filter',
+            'cost_optimizer.cost_explorer.metadata.build_account_filter',
             return_value=mock_filter,
         ):
             ctx = MagicMock()

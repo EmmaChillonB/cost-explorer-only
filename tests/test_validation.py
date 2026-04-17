@@ -5,8 +5,8 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from awslabs.cost_explorer_mcp_server import validation
-from awslabs.cost_explorer_mcp_server.validation import (
+from cost_optimizer.cost_explorer import validation
+from cost_optimizer.cost_explorer.validation import (
     validate_expression,
     validate_date_format,
     validate_date_range,
@@ -55,7 +55,7 @@ class TestValidateExpressionWithFlagDisabled:
     """Tests for validate_expression when VALIDATE_FILTER_VALUES is False."""
 
     @patch.object(validation, 'VALIDATE_FILTER_VALUES', False)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_dimensions_no_aws_call_when_flag_disabled(self, mock_get_dim_values):
         """Test that no AWS call is made for dimension validation when flag is False."""
         expression = {
@@ -74,7 +74,7 @@ class TestValidateExpressionWithFlagDisabled:
         assert 'error' not in result
 
     @patch.object(validation, 'VALIDATE_FILTER_VALUES', False)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values')
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_tag_values')
     def test_tags_no_aws_call_when_flag_disabled(self, mock_get_tag_values):
         """Test that no AWS call is made for tag validation when flag is False."""
         expression = {
@@ -114,7 +114,7 @@ class TestValidateExpressionWithFlagEnabled:
     """Tests for validate_expression when VALIDATE_FILTER_VALUES is True."""
 
     @patch.object(validation, 'VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_dimensions_aws_call_when_flag_enabled(self, mock_get_dim_values):
         """Test that AWS call is made for dimension validation when flag is True."""
         mock_get_dim_values.return_value = {
@@ -137,7 +137,7 @@ class TestValidateExpressionWithFlagEnabled:
         assert 'error' not in result
 
     @patch.object(validation, 'VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_dimensions_invalid_value_detected_when_flag_enabled(self, mock_get_dim_values):
         """Test that invalid dimension values are detected when flag is True."""
         mock_get_dim_values.return_value = {
@@ -159,7 +159,7 @@ class TestValidateExpressionWithFlagEnabled:
         assert 'Invalid value' in result['error']
 
     @patch.object(validation, 'VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values')
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_tag_values')
     def test_tags_aws_call_when_flag_enabled(self, mock_get_tag_values):
         """Test that AWS call is made for tag validation when flag is True."""
         mock_get_tag_values.return_value = {

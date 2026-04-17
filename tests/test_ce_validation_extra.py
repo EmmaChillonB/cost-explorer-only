@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from awslabs.cost_explorer_mcp_server.cost_explorer.validation import (
+from cost_optimizer.cost_explorer.validation import (
     validate_expression,
     validate_group_by,
     validate_forecast_date_range,
@@ -27,10 +27,10 @@ class TestValidateExpressionWithAWSValidation:
         mock_response = {'values': ['Amazon EC2', 'Amazon S3']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_dimension_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_dimension_values',
             return_value=mock_response,
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')
@@ -49,10 +49,10 @@ class TestValidateExpressionWithAWSValidation:
         mock_response = {'values': ['Amazon EC2', 'Amazon S3']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_dimension_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_dimension_values',
             return_value=mock_response,
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')
@@ -70,10 +70,10 @@ class TestValidateExpressionWithAWSValidation:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_dimension_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_dimension_values',
             return_value={'error': 'API call failed'},
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')
@@ -92,10 +92,10 @@ class TestValidateExpressionWithAWSValidation:
         mock_response = {'values': ['prod', 'dev', 'staging']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_tag_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_tag_values',
             return_value=mock_response,
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')
@@ -114,10 +114,10 @@ class TestValidateExpressionWithAWSValidation:
         mock_response = {'values': ['prod', 'dev']}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_tag_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_tag_values',
             return_value=mock_response,
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')
@@ -135,10 +135,10 @@ class TestValidateExpressionWithAWSValidation:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.validation.VALIDATE_FILTER_VALUES',
+            'cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES',
             True,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.helpers.get_available_tag_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_tag_values',
             return_value={'error': 'API call failed'},
         ):
             result = validate_expression(expr, '2025-01-01', '2025-01-31', 'test')

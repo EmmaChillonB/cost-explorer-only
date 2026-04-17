@@ -16,8 +16,8 @@
 
 import os
 import pytest
-from awslabs.cost_explorer_mcp_server.auth import get_cost_explorer_client
-from awslabs.cost_explorer_mcp_server.validation import (
+from cost_optimizer.auth import get_cost_explorer_client
+from cost_optimizer.cost_explorer.validation import (
     validate_comparison_date_range,
     validate_date_format,
     validate_date_range,
@@ -27,7 +27,7 @@ from awslabs.cost_explorer_mcp_server.validation import (
     validate_group_by,
     validate_match_options,
 )
-from awslabs.cost_explorer_mcp_server.helpers import (
+from cost_optimizer.cost_explorer.helpers import (
     create_detailed_group_key,
     extract_group_key_from_complex_selector,
     extract_usage_context_from_selector,
@@ -48,8 +48,8 @@ class TestGetCostExplorerClient:
     """
 
     def test_get_cost_explorer_client_is_importable(self):
-        """Test that get_cost_explorer_client can be imported from helpers."""
-        from awslabs.cost_explorer_mcp_server.helpers import get_cost_explorer_client
+        """Test that get_cost_explorer_client can be imported from auth."""
+        from cost_optimizer.auth import get_cost_explorer_client
         assert callable(get_cost_explorer_client)
 
 
@@ -156,7 +156,7 @@ class TestValidation:
         result = validate_group_by(None)
         assert 'error' in result
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_valid(self, mock_datetime):
         """Test forecast date range validation with valid range."""
         # Mock current date
@@ -166,7 +166,7 @@ class TestValidation:
         is_valid, _ = validate_forecast_date_range('2025-06-15', '2025-07-15')
         assert is_valid is True
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_start_in_future(self, mock_datetime):
         """Test forecast date range validation with start date in future."""
         # Mock current date
@@ -177,7 +177,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be equal to or no later than the current date' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_end_in_past(self, mock_datetime):
         """Test forecast date range validation with end date in past."""
         # Mock current date
@@ -188,7 +188,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be in the future' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_daily_too_long(self, mock_datetime):
         """Test forecast date range validation with daily granularity too long."""
         # Mock current date
@@ -199,7 +199,7 @@ class TestValidation:
         assert is_valid is False
         assert 'DAILY granularity supports a maximum of 3 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_comparison_date_range_valid(self, mock_datetime):
         """Test comparison date range validation with valid range."""
         # Mock current date
@@ -209,7 +209,7 @@ class TestValidation:
         is_valid, _ = validate_comparison_date_range('2025-01-01', '2025-02-01')
         assert is_valid is True
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_comparison_date_range_not_first_day(self, mock_datetime):
         """Test comparison date range validation with non-first day."""
         # Mock current date
@@ -220,7 +220,7 @@ class TestValidation:
         assert is_valid is False
         assert 'must be the first day of a month' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_comparison_date_range_not_one_month(self, mock_datetime):
         """Test comparison date range validation with non-one-month duration."""
         # Mock current date
@@ -276,8 +276,8 @@ class TestValidateExpression:
     """Tests for validate_expression function."""
 
     @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_valid(self, mock_get_values):
         """Test expression validation with valid dimensions when validation enabled."""
         mock_get_values.return_value = {'values': ['EC2', 'S3']}
@@ -290,8 +290,8 @@ class TestValidateExpression:
         assert result == {}
 
     @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_invalid_value(self, mock_get_values):
         """Test expression validation with invalid dimension value when validation enabled."""
         mock_get_values.return_value = {'values': ['EC2', 'S3']}
@@ -318,8 +318,8 @@ class TestValidateExpression:
         assert 'must include "Key", "Values", and "MatchOptions"' in result['error']
 
     @patch.dict(os.environ, {'VALIDATE_FILTER_VALUES': 'true'})
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values')
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_tag_values')
     def test_validate_expression_tags_valid(self, mock_get_values):
         """Test expression validation with valid tags when validation enabled."""
         mock_get_values.return_value = {'values': ['Production', 'Development']}
@@ -424,7 +424,7 @@ class TestValidateExpression:
 class TestErrorHandling:
     """Tests for error handling in helper functions."""
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_dimension_values_client_error(self, mock_get_client):
         """Test dimension values with client creation error."""
         mock_get_client.side_effect = Exception('Client creation failed')
@@ -434,7 +434,7 @@ class TestErrorHandling:
         assert 'error' in result
         assert 'Client creation failed' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_tag_values_client_error(self, mock_get_client):
         """Test tag values with client creation error."""
         mock_get_client.side_effect = Exception('Client creation failed')
@@ -444,7 +444,7 @@ class TestErrorHandling:
         assert 'error' in result
         assert 'Client creation failed' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_tags_error(self):
         """Test expression validation with tags API error when validation enabled."""
         expression = {
@@ -453,7 +453,7 @@ class TestErrorHandling:
 
         # Mock the tag values function to return error
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_tag_values',
             return_value={'error': 'Tag API error'},
         ):
             result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
@@ -461,7 +461,7 @@ class TestErrorHandling:
         assert 'error' in result
         assert 'Tag API error' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_dimensions_error(self):
         """Test expression validation with dimensions API error when validation enabled."""
         expression = {
@@ -470,7 +470,7 @@ class TestErrorHandling:
 
         # Mock the dimension values function to return error
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_dimension_values',
             return_value={'error': 'Dimension API error'},
         ):
             result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
@@ -478,7 +478,7 @@ class TestErrorHandling:
         assert 'error' in result
         assert 'Dimension API error' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
     def test_validate_expression_with_invalid_tag_values(self):
         """Test expression validation with invalid tag values when validation enabled."""
         expression = {
@@ -487,7 +487,7 @@ class TestErrorHandling:
 
         # Mock the tag values function to return valid values that don't include our test value
         with patch(
-            'awslabs.cost_explorer_mcp_server.helpers.get_available_tag_values',
+            'cost_optimizer.cost_explorer.helpers.get_available_tag_values',
             return_value={'values': ['Production', 'Development']},
         ):
             result = validate_expression(expression, '2025-01-01', '2025-01-31', 'test-client')
@@ -595,7 +595,7 @@ class TestErrorHandling:
 class TestAdditionalCoverage:
     """Additional tests to improve coverage."""
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_dimension_values_empty_response(self, mock_get_client):
         """Test dimension values with empty response."""
         mock_client = MagicMock()
@@ -607,7 +607,7 @@ class TestAdditionalCoverage:
         assert 'values' in result
         assert result['values'] == []
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_tag_values_empty_response(self, mock_get_client):
         """Test tag values with empty response."""
         mock_client = MagicMock()
@@ -645,7 +645,7 @@ class TestAdditionalCoverage:
         result = extract_group_key_from_complex_selector(selector, group_by)
         assert result == 'No SERVICE'
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_monthly_too_long(self, mock_datetime):
         """Test forecast date range validation with monthly granularity too long."""
         # Mock current date
@@ -656,7 +656,7 @@ class TestAdditionalCoverage:
         assert is_valid is False
         assert 'MONTHLY granularity supports a maximum of 12 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_dimension_values_with_invalid_date_order(self, mock_get_client):
         """Test dimension values with start date after end date returns error from AWS."""
         mock_client = MagicMock()
@@ -669,7 +669,7 @@ class TestAdditionalCoverage:
         assert 'error' in result
         assert 'ValidationException' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_tag_values_with_invalid_date_order(self, mock_get_client):
         """Test tag values with start date after end date returns error from AWS."""
         mock_client = MagicMock()
@@ -716,8 +716,8 @@ class TestAdditionalCoverage:
         assert 'error' in result
         assert 'Invalid MatchOption' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.VALIDATE_FILTER_VALUES', True)
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_available_dimension_values')
+    @patch('cost_optimizer.cost_explorer.validation.VALIDATE_FILTER_VALUES', True)
+    @patch('cost_optimizer.cost_explorer.helpers.get_available_dimension_values')
     def test_validate_expression_dimensions_api_error(self, mock_get_values):
         """Test expression validation when dimension API returns error."""
         mock_get_values.return_value = {'error': 'API connection failed'}
@@ -984,7 +984,7 @@ class TestExtractGroupKeyFromComplexSelector:
 class TestValidateForecastDateRange:
     """Tests for the validate_forecast_date_range function."""
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_future_start_date(self, mock_datetime):
         """Test validation fails when start date is in the future."""
         # Create a real datetime object for the current date
@@ -999,7 +999,7 @@ class TestValidateForecastDateRange:
 
         # Test with start date in the future
         with patch(
-            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
+            'cost_optimizer.cost_explorer.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-07-01', '2025-08-01')
 
@@ -1007,7 +1007,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'must be equal to or no later than the current date' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_past_end_date(self, mock_datetime):
         """Test validation fails when end date is not in the future."""
         # Create a real datetime object for the current date
@@ -1019,7 +1019,7 @@ class TestValidateForecastDateRange:
 
         # Test with end date in the past
         with patch(
-            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
+            'cost_optimizer.cost_explorer.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-05-01', '2025-05-31')
 
@@ -1027,7 +1027,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'must be in the future' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_daily_too_long(self, mock_datetime):
         """Test validation fails when daily forecast range is too long."""
         # Create a real datetime object for the current date
@@ -1039,7 +1039,7 @@ class TestValidateForecastDateRange:
 
         # Test with daily granularity and range > 93 days
         with patch(
-            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
+            'cost_optimizer.cost_explorer.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-06-01', '2025-10-01', 'DAILY')
 
@@ -1047,7 +1047,7 @@ class TestValidateForecastDateRange:
             assert not is_valid
             assert 'DAILY granularity supports a maximum of 3 months' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_forecast_date_range_monthly_too_long(self, mock_datetime):
         """Test validation fails when monthly forecast range is too long."""
         # Create a real datetime object for the current date
@@ -1061,7 +1061,7 @@ class TestValidateForecastDateRange:
 
         # Test with monthly granularity and range > 12 months
         with patch(
-            'awslabs.cost_explorer_mcp_server.validation.validate_date_range', return_value=(True, '')
+            'cost_optimizer.cost_explorer.validation.validate_date_range', return_value=(True, '')
         ):
             is_valid, error = validate_forecast_date_range('2025-06-01', '2027-01-01', 'MONTHLY')
 
@@ -1100,7 +1100,7 @@ class TestValidateComparisonDateRange:
         assert not is_valid
         assert 'must be exactly one month' in error
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_comparison_date_range_current_month_january(self, mock_datetime):
         """Test validation when current month is January (edge case for year rollback)."""
         # Mock current date to be in January 2025
@@ -1115,7 +1115,7 @@ class TestValidateComparisonDateRange:
         assert 'Current month (2025-01) is not complete yet' in error
         assert '2024-12-01' in error  # Should suggest December 2024
 
-    @patch('awslabs.cost_explorer_mcp_server.validation.datetime')
+    @patch('cost_optimizer.cost_explorer.validation.datetime')
     def test_validate_comparison_date_range_december_to_january_transition(self, mock_datetime):
         """Test validation for December to January transition (year boundary)."""
         # Mock current date to be in February 2025

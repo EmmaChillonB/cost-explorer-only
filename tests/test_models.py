@@ -15,7 +15,7 @@
 """Simple tests for models module."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.models import DateRange, DimensionKey
+from cost_optimizer.cost_explorer.models import DateRange, DimensionKey
 from pydantic import ValidationError
 
 

@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from awslabs.cost_explorer_mcp_server.cost_explorer.trend import get_cost_trend_with_anomalies
+from cost_optimizer.cost_explorer.trend import get_cost_trend_with_anomalies
 
 
 class TestGetCostTrendWithAnomalies:
@@ -60,10 +60,10 @@ class TestGetCostTrendWithAnomalies:
         ]
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -106,10 +106,10 @@ class TestGetCostTrendWithAnomalies:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -142,10 +142,10 @@ class TestGetCostTrendWithAnomalies:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -180,10 +180,10 @@ class TestGetCostTrendWithAnomalies:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -197,7 +197,7 @@ class TestGetCostTrendWithAnomalies:
     async def test_top_level_error(self):
         """Test top-level error handling."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             side_effect=Exception('Connection failed'),
         ):
             ctx = MagicMock()
@@ -236,10 +236,10 @@ class TestGetCostTrendWithAnomalies:
         mock_ce.get_cost_and_usage.side_effect = mock_get_cost
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=None,
         ):
             ctx = MagicMock()
@@ -271,10 +271,10 @@ class TestGetCostTrendWithAnomalies:
         mock_filter = {'Dimensions': {'Key': 'LINKED_ACCOUNT', 'Values': ['123']}}
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.get_cost_explorer_client',
+            'cost_optimizer.cost_explorer.trend.get_cost_explorer_client',
             return_value=mock_ce,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.cost_explorer.trend.build_account_filter',
+            'cost_optimizer.cost_explorer.trend.build_account_filter',
             return_value=mock_filter,
         ):
             ctx = MagicMock()

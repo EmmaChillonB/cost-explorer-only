@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SERVER="cost-explorer-mcp-server"
+SERVER="cost-optimizer"
 MCP_TRANSPORT="${MCP_TRANSPORT:-sse}"
 
 # Check if the MCP server process is running
 # In a container, the entrypoint runs as PID 1
-if ! pgrep -f "awslabs.$SERVER" > /dev/null; then
+if ! pgrep -f "$SERVER" > /dev/null; then
   echo "$SERVER is not running"
   exit 1
 fi

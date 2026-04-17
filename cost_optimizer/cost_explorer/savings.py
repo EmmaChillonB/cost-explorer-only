@@ -15,7 +15,7 @@ from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict
 
-from .auth import get_cost_explorer_client, get_account_id, is_payer_account, build_account_filter
+from ..auth import get_cost_explorer_client, get_account_id, is_payer_account, build_account_filter
 
 # Configure Loguru logging
 logger.remove()
@@ -145,7 +145,7 @@ async def get_savings_commitments(
 
         # Active Savings Plans details
         try:
-            from .aws_clients import get_aws_client
+            from ..aws_clients import get_aws_client
             sp_client = get_aws_client(client_id, 'savingsplans', 'us-east-1')
             sp_resp = sp_client.describe_savings_plans(States=['active', 'queued'])
             for plan in sp_resp.get('savingsPlans', []):

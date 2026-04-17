@@ -20,20 +20,18 @@ through the AWS Cost Explorer, CloudWatch and related APIs.
 
 import os
 import sys
-from awslabs.cost_explorer_mcp_server.comparison_handler import (
+from cost_optimizer.cost_explorer import (
+    get_cost_and_usage,
     get_cost_and_usage_comparisons,
     get_cost_comparison_drivers,
-)
-from awslabs.cost_explorer_mcp_server.cost_usage_handler import get_cost_and_usage
-from awslabs.cost_explorer_mcp_server.forecasting_handler import get_cost_forecast
-from awslabs.cost_explorer_mcp_server.metadata_handler import (
+    get_cost_forecast,
     get_dimension_values,
     get_tag_values,
+    get_today_date,
+    get_cost_trend_with_anomalies,
 )
-from awslabs.cost_explorer_mcp_server.utility_handler import get_today_date
-from awslabs.cost_explorer_mcp_server.cost_explorer.trend import get_cost_trend_with_anomalies
-from awslabs.cost_explorer_mcp_server.savings import get_savings_commitments
-from awslabs.cost_explorer_mcp_server.inventory import (
+from cost_optimizer.cost_explorer.savings import get_savings_commitments
+from cost_optimizer.inventory import (
     describe_ec2_instances,
     list_ec2_regions_with_instances,
     describe_ebs_volumes,
@@ -44,7 +42,7 @@ from awslabs.cost_explorer_mcp_server.inventory import (
     describe_elastic_ips,
     list_s3_buckets,
 )
-from awslabs.cost_explorer_mcp_server.utilization import (
+from cost_optimizer.utilization import (
     get_ec2_utilization,
     get_rds_utilization,
     get_ebs_utilization,
@@ -55,7 +53,7 @@ from awslabs.cost_explorer_mcp_server.utilization import (
 from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 from pydantic import Field
-from awslabs.cost_explorer_mcp_server.auth import (
+from cost_optimizer.auth import (
     get_active_sessions,
     close_client_session,
 )

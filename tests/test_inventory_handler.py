@@ -17,7 +17,7 @@
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, PropertyMock
-from awslabs.cost_explorer_mcp_server.inventory import (
+from cost_optimizer.inventory import (
     describe_ec2_instances,
     describe_rds_instances,
     describe_ebs_volumes,
@@ -27,7 +27,7 @@ from awslabs.cost_explorer_mcp_server.inventory import (
     describe_elastic_ips,
     list_s3_buckets,
 )
-from awslabs.cost_explorer_mcp_server.inventory.common import serialize_datetime
+from cost_optimizer.inventory.common import serialize_datetime
 
 
 class TestSerializeDatetime:
@@ -69,7 +69,7 @@ class TestDescribeEC2Instances:
     def mock_ec2_client(self):
         """Mock EC2 client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client'
+            'cost_optimizer.inventory.ec2.get_ec2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -169,7 +169,7 @@ class TestDescribeRDSInstances:
     def mock_rds_client(self):
         """Mock RDS client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.rds.get_rds_client'
+            'cost_optimizer.inventory.rds.get_rds_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -234,7 +234,7 @@ class TestDescribeEBSVolumes:
     def mock_ec2_client(self):
         """Mock EC2 client for EBS."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ebs.get_ec2_client'
+            'cost_optimizer.inventory.ebs.get_ec2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -323,7 +323,7 @@ class TestDescribeEBSSnapshots:
     def mock_ec2_client(self):
         """Mock EC2 client for snapshots."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ebs.get_ec2_client'
+            'cost_optimizer.inventory.ebs.get_ec2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -433,7 +433,7 @@ class TestDescribeLoadBalancers:
     def mock_elbv2_client(self):
         """Mock ELBv2 client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.elb.get_elbv2_client'
+            'cost_optimizer.inventory.elb.get_elbv2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -512,7 +512,7 @@ class TestDescribeNATGateways:
     def mock_ec2_client(self):
         """Mock EC2 client for NAT Gateways."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.network.get_ec2_client'
+            'cost_optimizer.inventory.network.get_ec2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -565,7 +565,7 @@ class TestDescribeElasticIPs:
     def mock_ec2_client(self):
         """Mock EC2 client for Elastic IPs."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.network.get_ec2_client'
+            'cost_optimizer.inventory.network.get_ec2_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -611,9 +611,9 @@ class TestListS3Buckets:
     def mock_s3_client(self):
         """Mock S3 client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.s3.get_s3_client'
+            'cost_optimizer.inventory.s3.get_s3_client'
         ) as mock_s3, patch(
-            'awslabs.cost_explorer_mcp_server.inventory.s3.get_cloudwatch_client'
+            'cost_optimizer.inventory.s3.get_cloudwatch_client'
         ) as mock_cw:
             client = MagicMock()
             mock_s3.return_value = client

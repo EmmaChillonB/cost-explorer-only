@@ -12,22 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Simple tests for metadata_handler module."""
+"""Tests for metadata module (dimension/tag value retrieval)."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.helpers import (
+from cost_optimizer.cost_explorer.helpers import (
     get_available_dimension_values,
     get_available_tag_values,
 )
-from awslabs.cost_explorer_mcp_server.metadata_handler import get_dimension_values, get_tag_values
-from awslabs.cost_explorer_mcp_server.models import DateRange, DimensionKey
+from cost_optimizer.cost_explorer.metadata import get_dimension_values, get_tag_values
+from cost_optimizer.cost_explorer.models import DateRange, DimensionKey
 from unittest.mock import MagicMock, patch
 
 
 @pytest.fixture
 def mock_ce_client():
     """Mock Cost Explorer client."""
-    with patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client') as mock:
+    with patch('cost_optimizer.cost_explorer.metadata.get_cost_explorer_client') as mock:
+        client = MagicMock()
+        mock.return_value = client
+        yield client
+
+
+@pytest.fixture
+def mock_helpers_ce_client():
+    """Mock Cost Explorer client for helpers module."""
+    with patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client') as mock:
         client = MagicMock()
         mock.return_value = client
         yield client
@@ -53,7 +62,6 @@ class TestDimensionValues:
         self, mock_ce_client, valid_date_range, valid_dimension
     ):
         """Test successful dimension values retrieval."""
-        # Setup mock response
         mock_ce_client.get_dimension_values.return_value = {
             'DimensionValues': [
                 {'Value': 'Amazon Elastic Compute Cloud - Compute'},
@@ -62,7 +70,11 @@ class TestDimensionValues:
         }
 
         ctx = MagicMock()
-        result = await get_dimension_values(ctx, valid_date_range, valid_dimension)
+        with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+            result = await get_dimension_values(
+                ctx, dimension_key=valid_dimension, client_id='test-client',
+                date_range=valid_date_range,
+            )
 
         assert result['dimension'] == 'SERVICE'
         assert len(result['values']) == 2
@@ -76,7 +88,11 @@ class TestDimensionValues:
         mock_ce_client.get_dimension_values.side_effect = Exception('API Error')
 
         ctx = MagicMock()
-        result = await get_dimension_values(ctx, valid_date_range, valid_dimension)
+        with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+            result = await get_dimension_values(
+                ctx, dimension_key=valid_dimension, client_id='test-client',
+                date_range=valid_date_range,
+            )
 
         assert 'error' in result
         assert 'API Error' in result['error']
@@ -91,7 +107,11 @@ class TestTagValues:
         mock_ce_client.get_tags.return_value = {'Tags': ['dev', 'prod', 'test']}
 
         ctx = MagicMock()
-        result = await get_tag_values(ctx, valid_date_range, 'Environment')
+        with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+            result = await get_tag_values(
+                ctx, tag_key='Environment', client_id='test-client',
+                date_range=valid_date_range,
+            )
 
         assert result['tag_key'] == 'Environment'
         assert result['values'] == ['dev', 'prod', 'test']
@@ -102,18 +122,21 @@ class TestTagValues:
         mock_ce_client.get_tags.side_effect = Exception('API Error')
 
         ctx = MagicMock()
-        result = await get_tag_values(ctx, valid_date_range, 'Environment')
+        with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+            result = await get_tag_values(
+                ctx, tag_key='Environment', client_id='test-client',
+                date_range=valid_date_range,
+            )
 
         assert 'error' in result
 
 
 class TestImplementationFunctions:
-    """Tests for the implementation functions that were moved to helpers."""
+    """Tests for the helper implementation functions."""
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_dimension_values_success(self, mock_get_client):
         """Test successful dimension values retrieval."""
-        # Setup mock client
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_dimension_values.return_value = {
@@ -130,10 +153,9 @@ class TestImplementationFunctions:
         assert 'S3' in result['values']
         mock_client.get_dimension_values.assert_called_once()
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_dimension_values_error(self, mock_get_client):
         """Test dimension values retrieval with error."""
-        # Setup mock client to raise exception
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_dimension_values.side_effect = Exception('API Error')
@@ -143,10 +165,9 @@ class TestImplementationFunctions:
         assert 'error' in result
         assert 'API Error' in result['error']
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_tag_values_success(self, mock_get_client):
         """Test successful tag values retrieval."""
-        # Setup mock client
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_tags.return_value = {'Tags': ['Production', 'Development', 'Testing']}
@@ -158,10 +179,9 @@ class TestImplementationFunctions:
         assert 'Development' in result['values']
         mock_client.get_tags.assert_called_once()
 
-    @patch('awslabs.cost_explorer_mcp_server.helpers.get_cost_explorer_client')
+    @patch('cost_optimizer.cost_explorer.helpers.get_cost_explorer_client')
     def test_get_available_tag_values_error(self, mock_get_client):
         """Test tag values retrieval with error."""
-        # Setup mock client to raise exception
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
         mock_client.get_tags.side_effect = Exception('API Error')
@@ -172,59 +192,34 @@ class TestImplementationFunctions:
         assert 'API Error' in result['error']
 
     @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.metadata_handler.get_available_dimension_values')
-    async def test_get_dimension_values_error(self, mock_get_values):
-        """Test get_dimension_values with error."""
-        mock_get_values.return_value = {'error': 'API Error'}
+    async def test_get_dimension_values_exception(self):
+        """Test get_dimension_values with exception from client."""
+        with patch('cost_optimizer.cost_explorer.metadata.get_cost_explorer_client') as mock_get_client:
+            mock_get_client.side_effect = Exception('Unexpected error')
+            with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+                ctx = MagicMock()
+                date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
+                dimension = DimensionKey(dimension_key='SERVICE')
 
-        ctx = MagicMock()
-        date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
-        dimension = DimensionKey(dimension_key='SERVICE')
-
-        result = await get_dimension_values(ctx, date_range, dimension)
+                result = await get_dimension_values(
+                    ctx, dimension_key=dimension, client_id='test-client',
+                    date_range=date_range,
+                )
 
         assert 'error' in result
-        assert 'API Error' in result['error']
 
     @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.metadata_handler.get_available_tag_values')
-    async def test_get_tag_values_error(self, mock_get_values):
-        """Test get_tag_values with error."""
-        mock_get_values.return_value = {'error': 'Tag API Error'}
+    async def test_get_tag_values_exception(self):
+        """Test get_tag_values with exception from client."""
+        with patch('cost_optimizer.cost_explorer.metadata.get_cost_explorer_client') as mock_get_client:
+            mock_get_client.side_effect = Exception('Unexpected tag error')
+            with patch('cost_optimizer.cost_explorer.metadata.build_account_filter', return_value=None):
+                ctx = MagicMock()
+                date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
 
-        ctx = MagicMock()
-        date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
-
-        result = await get_tag_values(ctx, date_range, 'Environment')
-
-        assert 'error' in result
-        assert 'Tag API Error' in result['error']
-
-    @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.metadata_handler.get_available_dimension_values')
-    async def test_get_dimension_values_exception(self, mock_get_values):
-        """Test get_dimension_values with exception."""
-        mock_get_values.side_effect = Exception('Unexpected error')
-
-        ctx = MagicMock()
-        date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
-        dimension = DimensionKey(dimension_key='SERVICE')
-
-        result = await get_dimension_values(ctx, date_range, dimension)
+                result = await get_tag_values(
+                    ctx, tag_key='Environment', client_id='test-client',
+                    date_range=date_range,
+                )
 
         assert 'error' in result
-        assert 'Error getting dimension values' in result['error']
-
-    @pytest.mark.asyncio
-    @patch('awslabs.cost_explorer_mcp_server.metadata_handler.get_available_tag_values')
-    async def test_get_tag_values_exception(self, mock_get_values):
-        """Test get_tag_values with exception."""
-        mock_get_values.side_effect = Exception('Unexpected tag error')
-
-        ctx = MagicMock()
-        date_range = DateRange(start_date='2025-01-01', end_date='2025-01-31')
-
-        result = await get_tag_values(ctx, date_range, 'Environment')
-
-        assert 'error' in result
-        assert 'Error getting tag values' in result['error']

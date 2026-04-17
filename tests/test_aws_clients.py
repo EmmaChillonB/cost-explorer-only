@@ -17,7 +17,7 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
-import awslabs.cost_explorer_mcp_server.aws_clients as aws_clients
+import cost_optimizer.aws_clients as aws_clients
 
 
 @pytest.fixture(autouse=True)
@@ -75,8 +75,8 @@ class TestIsServiceTokenExpired:
 class TestCreateSessionWithAssumedRole:
     """Test assumed role session creation."""
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._get_role_arn_for_client')
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.boto3')
+    @patch('cost_optimizer.aws_clients._get_role_arn_for_client')
+    @patch('cost_optimizer.aws_clients.boto3')
     def test_create_session_success(self, mock_boto3, mock_get_role):
         """Test successful session creation."""
         mock_get_role.return_value = 'arn:aws:iam::123456789012:role/test-role'
@@ -104,7 +104,7 @@ class TestCreateSessionWithAssumedRole:
         assert session == mock_assumed_session
         assert exp == expiration
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._get_role_arn_for_client')
+    @patch('cost_optimizer.aws_clients._get_role_arn_for_client')
     def test_create_session_no_role(self, mock_get_role):
         """Test error when role not found."""
         mock_get_role.return_value = None
@@ -116,7 +116,7 @@ class TestCreateSessionWithAssumedRole:
 class TestGetAWSClient:
     """Test AWS client factory."""
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._create_assumed_session')
+    @patch('cost_optimizer.aws_clients._create_assumed_session')
     def test_get_aws_client_creates_new(self, mock_create_session):
         """Test creating a new client."""
         mock_session = MagicMock()
@@ -131,7 +131,7 @@ class TestGetAWSClient:
         assert client == mock_client
         mock_session.client.assert_called_once_with('ec2', region_name='eu-west-1')
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._create_assumed_session')
+    @patch('cost_optimizer.aws_clients._create_assumed_session')
     def test_get_aws_client_caches(self, mock_create_session):
         """Test that clients are cached."""
         mock_session = MagicMock()
@@ -149,7 +149,7 @@ class TestGetAWSClient:
         assert mock_create_session.call_count == 1
         assert client1 == client2
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._create_assumed_session')
+    @patch('cost_optimizer.aws_clients._create_assumed_session')
     def test_get_aws_client_different_services(self, mock_create_session):
         """Test getting different service clients."""
         mock_session = MagicMock()
@@ -172,7 +172,7 @@ class TestGetAWSClient:
         assert ec2_client == mock_ec2
         assert rds_client == mock_rds
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients._create_assumed_session')
+    @patch('cost_optimizer.aws_clients._create_assumed_session')
     def test_get_aws_client_with_region(self, mock_create_session):
         """Test getting client with specific region."""
         mock_session = MagicMock()
@@ -190,7 +190,7 @@ class TestGetAWSClient:
 class TestServiceClientHelpers:
     """Test service-specific client helpers."""
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_ec2_client(self, mock_get_client):
         """Test EC2 client helper."""
         mock_client = MagicMock()
@@ -201,7 +201,7 @@ class TestServiceClientHelpers:
         mock_get_client.assert_called_once_with('test-client', 'ec2', 'us-west-2')
         assert result == mock_client
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_rds_client(self, mock_get_client):
         """Test RDS client helper."""
         mock_client = MagicMock()
@@ -212,7 +212,7 @@ class TestServiceClientHelpers:
         mock_get_client.assert_called_once_with('test-client', 'rds', None)
         assert result == mock_client
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_cloudwatch_client(self, mock_get_client):
         """Test CloudWatch client helper."""
         mock_client = MagicMock()
@@ -223,7 +223,7 @@ class TestServiceClientHelpers:
         mock_get_client.assert_called_once_with('test-client', 'cloudwatch', None)
         assert result == mock_client
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_s3_client(self, mock_get_client):
         """Test S3 client helper."""
         mock_client = MagicMock()
@@ -234,7 +234,7 @@ class TestServiceClientHelpers:
         mock_get_client.assert_called_once_with('test-client', 's3', None)
         assert result == mock_client
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_elbv2_client(self, mock_get_client):
         """Test ELBv2 client helper."""
         mock_client = MagicMock()
@@ -245,7 +245,7 @@ class TestServiceClientHelpers:
         mock_get_client.assert_called_once_with('test-client', 'elbv2', None)
         assert result == mock_client
 
-    @patch('awslabs.cost_explorer_mcp_server.aws_clients.get_aws_client')
+    @patch('cost_optimizer.aws_clients.get_aws_client')
     def test_get_elb_client(self, mock_get_client):
         """Test ELB client helper."""
         mock_client = MagicMock()

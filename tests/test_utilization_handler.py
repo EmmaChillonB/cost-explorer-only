@@ -17,7 +17,7 @@
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
-from awslabs.cost_explorer_mcp_server.utilization import (
+from cost_optimizer.utilization import (
     get_ec2_utilization,
     get_rds_utilization,
     get_elb_utilization,
@@ -25,10 +25,10 @@ from awslabs.cost_explorer_mcp_server.utilization import (
     get_ebs_utilization,
     get_multi_resource_utilization,
 )
-from awslabs.cost_explorer_mcp_server.utilization.ec2 import _assess_ec2_utilization
-from awslabs.cost_explorer_mcp_server.utilization.rds import _assess_rds_utilization
-from awslabs.cost_explorer_mcp_server.utilization.elb import _assess_elb_utilization
-from awslabs.cost_explorer_mcp_server.utilization.common import (
+from cost_optimizer.utilization.ec2 import _assess_ec2_utilization
+from cost_optimizer.utilization.rds import _assess_rds_utilization
+from cost_optimizer.utilization.elb import _assess_elb_utilization
+from cost_optimizer.utilization.common import (
     get_metric_statistics,
     calculate_time_range,
 )
@@ -222,7 +222,7 @@ class TestGetEC2Utilization:
     def mock_cloudwatch_client(self):
         """Mock CloudWatch client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.utilization.ec2.get_cloudwatch_client'
+            'cost_optimizer.utilization.ec2.get_cloudwatch_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -314,7 +314,7 @@ class TestGetRDSUtilization:
     def mock_cloudwatch_client(self):
         """Mock CloudWatch client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.utilization.rds.get_cloudwatch_client'
+            'cost_optimizer.utilization.rds.get_cloudwatch_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -358,7 +358,7 @@ class TestGetELBUtilization:
     def mock_cloudwatch_client(self):
         """Mock CloudWatch client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.utilization.elb.get_cloudwatch_client'
+            'cost_optimizer.utilization.elb.get_cloudwatch_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -426,7 +426,7 @@ class TestGetNATGatewayUtilization:
     def mock_cloudwatch_client(self):
         """Mock CloudWatch client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.utilization.network.get_cloudwatch_client'
+            'cost_optimizer.utilization.network.get_cloudwatch_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -467,7 +467,7 @@ class TestGetEBSUtilization:
     def mock_cloudwatch_client(self):
         """Mock CloudWatch client."""
         with patch(
-            'awslabs.cost_explorer_mcp_server.utilization.ebs.get_cloudwatch_client'
+            'cost_optimizer.utilization.ebs.get_cloudwatch_client'
         ) as mock:
             client = MagicMock()
             mock.return_value = client
@@ -526,9 +526,9 @@ class TestGetMultiResourceUtilization:
     @pytest.mark.asyncio
     async def test_get_multi_resource_utilization(self):
         """Test multi-resource utilization overview."""
-        with patch('awslabs.cost_explorer_mcp_server.utilization.multi.get_ec2_client') as mock_ec2, \
-             patch('awslabs.cost_explorer_mcp_server.utilization.ec2.get_cloudwatch_client') as mock_cw, \
-             patch('awslabs.cost_explorer_mcp_server.utilization.multi.get_rds_client') as mock_rds:
+        with patch('cost_optimizer.utilization.multi.get_ec2_client') as mock_ec2, \
+             patch('cost_optimizer.utilization.ec2.get_cloudwatch_client') as mock_cw, \
+             patch('cost_optimizer.utilization.multi.get_rds_client') as mock_rds:
 
             ec2_client = MagicMock()
             cw_client = MagicMock()

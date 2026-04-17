@@ -19,7 +19,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
-from awslabs.cost_explorer_mcp_server import auth
+from cost_optimizer import auth
 
 
 @pytest.fixture(autouse=True)
@@ -1254,7 +1254,7 @@ class TestEdgeCases:
                 result = original_join(*args)
                 return result
             
-            with patch('awslabs.cost_explorer_mcp_server.auth.os.path.exists', side_effect=mock_exists):
+            with patch('cost_optimizer.auth.os.path.exists', side_effect=mock_exists):
                 path = auth._get_clients_config_path()
                 
                 # Verify multiple fallback paths were checked

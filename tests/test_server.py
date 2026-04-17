@@ -14,7 +14,7 @@
 
 """Tests for the MCP server module."""
 
-from awslabs.cost_explorer_mcp_server.server import main
+from cost_optimizer.server import main
 from unittest.mock import patch
 import os
 
@@ -22,35 +22,35 @@ import os
 class TestServer:
     """Test cases for server functionality."""
 
-    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch('cost_optimizer.server.app')
     @patch.dict('os.environ', {'MCP_TRANSPORT': 'stdio'}, clear=False)
     def test_main_function_stdio(self, mock_app):
         """Test the main function calls app.run() with stdio transport."""
         main()
         mock_app.run.assert_called_once_with(transport='stdio', mount_path=None)
 
-    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch('cost_optimizer.server.app')
     @patch.dict('os.environ', {'MCP_TRANSPORT': 'sse'}, clear=False)
     def test_main_function_sse(self, mock_app):
         """Test the main function calls app.run() with sse transport."""
         main()
         mock_app.run.assert_called_once_with(transport='sse', mount_path=None)
 
-    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch('cost_optimizer.server.app')
     @patch.dict('os.environ', {'MCP_TRANSPORT': 'streamable-http'}, clear=False)
     def test_main_function_streamable_http(self, mock_app):
         """Test the main function calls app.run() with streamable-http transport."""
         main()
         mock_app.run.assert_called_once_with(transport='streamable-http', mount_path=None)
 
-    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch('cost_optimizer.server.app')
     @patch.dict('os.environ', {'MCP_TRANSPORT': 'invalid'}, clear=False)
     def test_main_function_invalid_transport_defaults_to_stdio(self, mock_app):
         """Test the main function defaults to stdio for invalid transport."""
         main()
         mock_app.run.assert_called_once_with(transport='stdio', mount_path=None)
 
-    @patch('awslabs.cost_explorer_mcp_server.server.app')
+    @patch('cost_optimizer.server.app')
     @patch.dict('os.environ', {'MCP_TRANSPORT': 'sse', 'MCP_MOUNT_PATH': '/mcp'}, clear=False)
     def test_main_function_with_mount_path(self, mock_app):
         """Test the main function passes mount_path correctly."""
@@ -61,7 +61,7 @@ class TestServer:
         """Test coverage of the main block."""
         # This test ensures the main block is covered
         # The actual execution is tested through integration
-        import awslabs.cost_explorer_mcp_server.server as server_module
+        import cost_optimizer.server as server_module
 
         # Verify the module has the main block
         with open(server_module.__file__, 'r') as f:
@@ -71,14 +71,14 @@ class TestServer:
 
     def test_server_module_import(self):
         """Test that server module can be imported and has expected attributes."""
-        import awslabs.cost_explorer_mcp_server.server as server_module
+        import cost_optimizer.server as server_module
 
         # Verify the module has the expected functions and attributes
         assert hasattr(server_module, 'main')
         assert hasattr(server_module, 'app')
         assert callable(server_module.main)
 
-    @patch('awslabs.cost_explorer_mcp_server.server.main')
+    @patch('cost_optimizer.server.main')
     def test_main_block_execution_coverage(self, mock_main):
         """Test main block execution for coverage."""
         # This test covers the if __name__ == '__main__' block
@@ -92,8 +92,8 @@ class TestServer:
                 [
                     sys.executable,
                     '-c',
-                    'import awslabs.cost_explorer_mcp_server.server; '
-                    "awslabs.cost_explorer_mcp_server.server.__name__ = '__main__'; "
+                    'import cost_optimizer.server; '
+                    "cost_optimizer.server.__name__ = '__main__'; "
                     'exec(\'if __name__ == "__main__": pass\')',
                 ],
                 timeout=1,

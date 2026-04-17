@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from awslabs.cost_explorer_mcp_server.inventory.ec2 import (
+from cost_optimizer.inventory.ec2 import (
     _scan_region,
     list_ec2_regions_with_instances,
     _REGIONS_CACHE,
@@ -32,7 +32,7 @@ class TestScanRegion:
         ]
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client',
+            'cost_optimizer.inventory.ec2.get_ec2_client',
             return_value=mock_ec2,
         ):
             result = _scan_region('test-client', 'us-east-1')
@@ -51,7 +51,7 @@ class TestScanRegion:
         paginator.paginate.return_value = [{'Reservations': []}]
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client',
+            'cost_optimizer.inventory.ec2.get_ec2_client',
             return_value=mock_ec2,
         ):
             result = _scan_region('test-client', 'eu-west-1')
@@ -60,7 +60,7 @@ class TestScanRegion:
 
     def test_region_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client',
+            'cost_optimizer.inventory.ec2.get_ec2_client',
             side_effect=Exception('Region not enabled'),
         ):
             result = _scan_region('test-client', 'ap-south-2')
@@ -101,10 +101,10 @@ class TestListEC2RegionsWithInstances:
         }
 
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client',
+            'cost_optimizer.inventory.ec2.get_ec2_client',
             return_value=mock_ec2,
         ), patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2._scan_region',
+            'cost_optimizer.inventory.ec2._scan_region',
             side_effect=lambda cid, r: scan_results.get(r),
         ):
             ctx = MagicMock()
@@ -133,7 +133,7 @@ class TestListEC2RegionsWithInstances:
     @pytest.mark.asyncio
     async def test_error(self):
         with patch(
-            'awslabs.cost_explorer_mcp_server.inventory.ec2.get_ec2_client',
+            'cost_optimizer.inventory.ec2.get_ec2_client',
             side_effect=Exception('Connection failed'),
         ):
             ctx = MagicMock()

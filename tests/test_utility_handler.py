@@ -15,7 +15,7 @@
 """Simple tests for utility_handler module."""
 
 import pytest
-from awslabs.cost_explorer_mcp_server.cost_explorer.utility import get_today_date
+from cost_optimizer.cost_explorer.utility import get_today_date
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 @pytest.mark.asyncio
 async def test_get_today_date():
     """Test get_today_date returns current date in correct format."""
-    with patch('awslabs.cost_explorer_mcp_server.cost_explorer.utility.datetime') as mock_dt:
+    with patch('cost_optimizer.cost_explorer.utility.datetime') as mock_dt:
         # Mock datetime to return fixed date
         mock_now = datetime(2025, 6, 20, 15, 30, 0, tzinfo=timezone.utc)
         mock_dt.now.return_value = mock_now

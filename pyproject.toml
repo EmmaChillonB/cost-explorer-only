@@ -1,5 +1,5 @@
 [project]
-name = "awslabs.cost-explorer-mcp-server"
+name = "cost-optimizer"
 version = "0.0.18"
 description = "MCP server for analyzing AWS costs and usage data through the AWS Cost Explorer API"
 readme = "README.md"
@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 [project.scripts]
-"awslabs.cost-explorer-mcp-server" = "awslabs.cost_explorer_mcp_server.server:main"
+"cost-optimizer" = "cost_optimizer.server:main"
 
 [project.urls]
 Homepage = "https://awslabs.github.io/mcp/"
@@ -96,21 +96,11 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = true
 
-[tool.commitizen]
-name = "cz_conventional_commits"
-version = "0.0.0"
-tag_format = "v$version"
-version_files = [
-    "pyproject.toml:version",
-    "awslabs/cost_explorer_mcp_server/__init__.py:__version__"
-]
-update_changelog_on_bump = true
-
 [tool.hatch.build.targets.wheel]
-packages = ["awslabs"]
+packages = ["cost_optimizer"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=awslabs.cost_explorer_mcp_server --cov-report=term-missing"
+addopts = "--cov=cost_optimizer --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -125,4 +115,4 @@ markers = [
 exclude_dirs = ["venv","tests"]
 
 [tool.coverage.run]
-source = ["awslabs"]
+source = ["cost_optimizer"]

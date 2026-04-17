@@ -27,6 +27,7 @@ from .forecast import get_cost_forecast
 from .metadata import get_dimension_values, get_tag_values
 from .utility import get_today_date
 from .trend import get_cost_trend_with_anomalies
+from .savings import get_savings_commitments
 
 __all__ = [
     # Usage
@@ -43,4 +44,6 @@ __all__ = [
     'get_today_date',
     # Trend analysis
     'get_cost_trend_with_anomalies',
+    # Savings
+    'get_savings_commitments',
 ]
