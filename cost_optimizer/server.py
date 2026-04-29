@@ -37,6 +37,7 @@ from cost_optimizer.inventory import (
     describe_ebs_volumes,
     describe_ebs_snapshots,
     describe_rds_instances,
+    get_rds_recommendations,
     describe_load_balancers,
     describe_nat_gateways,
     describe_elastic_ips,
@@ -126,6 +127,7 @@ app.tool('list_ec2_regions_with_instances')(list_ec2_regions_with_instances)
 app.tool('describe_ebs_volumes')(describe_ebs_volumes)
 app.tool('describe_ebs_snapshots')(describe_ebs_snapshots)
 app.tool('describe_rds_instances')(describe_rds_instances)
+app.tool('get_rds_recommendations')(get_rds_recommendations)
 app.tool('describe_load_balancers')(describe_load_balancers)
 app.tool('describe_nat_gateways')(describe_nat_gateways)
 app.tool('describe_elastic_ips')(describe_elastic_ips)

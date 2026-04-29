@@ -47,3 +47,4 @@ htmlcov/
 
 # ficheros de configuración
 clients.json
+/docs

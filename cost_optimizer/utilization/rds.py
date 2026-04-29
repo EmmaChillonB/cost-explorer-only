@@ -160,7 +160,14 @@ async def get_rds_utilization(
             dimensions, start_time, end_time, period_seconds,
             ['Average', 'Minimum']
         )
-        
+
+        # Disk Queue Depth (I/O saturation signal; sustained > 2 = bottleneck)
+        metrics['disk_queue_depth'] = get_metric_statistics(
+            cw, 'AWS/RDS', 'DiskQueueDepth',
+            dimensions, start_time, end_time, period_seconds,
+            ['Average', 'Maximum']
+        )
+
         # Network Throughput
         metrics['network_receive_throughput'] = get_metric_statistics(
             cw, 'AWS/RDS', 'NetworkReceiveThroughput',

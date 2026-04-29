@@ -59,6 +59,46 @@ BUCKET_LABELS = {
 }
 
 
+def _extract_rds_saturation_signals(util: Dict[str, Any]) -> Dict[str, Any]:
+    """Return all signals needed to judge an RDS instance in one shot.
+
+    Embedded in every RDS bucket entry so the agent never has to call
+    `get_rds_utilization` individually (each call costs ~500 tokens of output).
+    """
+    metrics = util.get('metrics', {})
+
+    def _get(metric_key: str, summary_key: str):
+        return metrics.get(metric_key, {}).get('summary', {}).get(summary_key)
+
+    def _to_mb(value_bytes):
+        return round(value_bytes / (1024 * 1024), 1) if value_bytes is not None else None
+
+    def _to_gb(value_bytes):
+        return round(value_bytes / (1024 ** 3), 2) if value_bytes is not None else None
+
+    def _to_ms(value_seconds):
+        return round(value_seconds * 1000, 2) if value_seconds is not None else None
+
+    return {
+        # I/O saturation
+        'disk_queue_depth_max': _get('disk_queue_depth', 'overall_maximum'),
+        # Avg queue depth distinguishes sustained pressure from rare spikes.
+        # Rule of thumb: avg < 0.5 + max > 2 => brief spikes, not saturation.
+        'disk_queue_depth_avg': _get('disk_queue_depth', 'overall_average'),
+        'read_iops_max': _get('read_iops', 'overall_maximum'),
+        'write_iops_max': _get('write_iops', 'overall_maximum'),
+        # Memory saturation
+        'freeable_memory_min_mb': _to_mb(_get('freeable_memory', 'overall_minimum')),
+        # Latency (ms) — high values often signal storage/IO pressure
+        'read_latency_max_ms': _to_ms(_get('read_latency', 'overall_maximum')),
+        'write_latency_max_ms': _to_ms(_get('write_latency', 'overall_maximum')),
+        # Connections
+        'connections_max': _get('connections', 'overall_maximum'),
+        # Storage headroom
+        'free_storage_gb_min': _to_gb(_get('free_storage_space', 'overall_minimum')),
+    }
+
+
 async def get_multi_resource_utilization(
     ctx: Context,
     client_id: str = Field(
@@ -216,11 +256,21 @@ async def get_multi_resource_utilization(
             for page in paginator.paginate():
                 for db in page.get('DBInstances', []):
                     if db.get('DBInstanceStatus') == 'available':
+                        storage_type = db.get('StorageType')
+                        allocated_gb = db.get('AllocatedStorage')
+                        # Iops is only set for gp3/io1/io2. For gp2, infer the
+                        # baseline from the allocated size (3 IOPS per GB, floor 100).
+                        provisioned_iops = db.get('Iops')
+                        if provisioned_iops is None and storage_type == 'gp2' and allocated_gb:
+                            provisioned_iops = max(100, allocated_gb * 3)
                         db_info.append({
                             'id': db.get('DBInstanceIdentifier'),
                             'class': db.get('DBInstanceClass'),
                             'engine': db.get('Engine'),
                             'multi_az': db.get('MultiAZ', False),
+                            'storage_type': storage_type,
+                            'allocated_storage_gb': allocated_gb,
+                            'provisioned_iops': provisioned_iops,
                         })
 
             result['rds']['total_instances'] = len(db_info)
@@ -267,14 +317,36 @@ async def get_multi_resource_utilization(
                         .get('summary', {}).get('overall_maximum')
                     )
                     bucket = _classify_cpu(cpu_avg)
-                    buckets[bucket].append({
+                    entry = {
                         'db_identifier': info['id'],
                         'db_class': info['class'],
                         'engine': info['engine'],
                         'multi_az': info['multi_az'],
                         'cpu_avg': cpu_avg,
                         'cpu_max': cpu_max,
-                    })
+                        # Storage configuration — needed to distinguish
+                        # "volume over-provisioned" from "instance saturated".
+                        'storage_type': info.get('storage_type'),
+                        'allocated_storage_gb': info.get('allocated_storage_gb'),
+                        'provisioned_iops': info.get('provisioned_iops'),
+                    }
+                    signals = _extract_rds_saturation_signals(util)
+                    entry.update(signals)
+
+                    # Derived: how much of the provisioned IOPS is actually used.
+                    # < 15% => IOPS over-provisioned (savings opportunity).
+                    # > 80% => volume is the bottleneck (upgrade storage).
+                    provisioned = info.get('provisioned_iops')
+                    if provisioned and provisioned > 0:
+                        peak_iops = max(
+                            signals.get('read_iops_max') or 0,
+                            signals.get('write_iops_max') or 0,
+                        )
+                        entry['iops_utilization_pct'] = round(
+                            peak_iops / provisioned * 100, 1
+                        )
+
+                    buckets[bucket].append(entry)
 
             rds_buckets = {}
             for bucket_key, instances in buckets.items():

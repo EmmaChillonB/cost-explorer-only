@@ -14,8 +14,9 @@ COPY pyproject.toml requirements.txt ./
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code and install package
+# Copy source code and metadata files required by hatchling (readme + license)
 COPY cost_optimizer/ cost_optimizer/
+COPY README.md LICENSE NOTICE ./
 RUN pip install --no-cache-dir .
 
 # Final runtime image

@@ -15,7 +15,7 @@
 """Inventory handlers for AWS resources."""
 
 from .ec2 import describe_ec2_instances, list_ec2_regions_with_instances
-from .rds import describe_rds_instances
+from .rds import describe_rds_instances, get_rds_recommendations
 from .ebs import describe_ebs_volumes, describe_ebs_snapshots
 from .elb import describe_load_balancers
 from .network import describe_nat_gateways, describe_elastic_ips
@@ -25,6 +25,7 @@ __all__ = [
     'describe_ec2_instances',
     'list_ec2_regions_with_instances',
     'describe_rds_instances',
+    'get_rds_recommendations',
     'describe_ebs_volumes',
     'describe_ebs_snapshots',
     'describe_load_balancers',
