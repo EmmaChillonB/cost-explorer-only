@@ -26,6 +26,11 @@ _clients_config_path = None
 _clients_config_mtime = None
 _config_lock = threading.Lock()
 
+# Secrets Manager cache
+_secrets_cache: Dict[str, Any] = {}
+_secrets_cache_time: float = 0.0
+_SECRETS_CACHE_TTL = int(os.getenv('CLIENTS_CONFIG_CACHE_TTL', '300'))
+
 # In-flight token refresh requests (deduplication)
 _refresh_in_flight = {}  # Maps client_id to threading.Event for deduplication
 _refresh_lock = threading.Lock()
@@ -40,6 +45,25 @@ TOKEN_REFRESH_BUFFER_SECONDS = 300
 # Timeout for waiting on in-flight refresh (seconds)
 # STS assume_role is typically fast, but network variance can add latency
 REFRESH_WAIT_TIMEOUT = 45
+
+
+def _load_from_secrets_manager(secret_id: str) -> Dict[str, Any]:
+    """Load clients config from Secrets Manager with TTL-based caching."""
+    global _secrets_cache, _secrets_cache_time
+
+    with _config_lock:
+        now = time.time()
+        if _secrets_cache and (now - _secrets_cache_time) < _SECRETS_CACHE_TTL:
+            return _secrets_cache
+
+        logger.debug(f'Loading clients config from Secrets Manager: {secret_id}')
+        sm = boto3.client('secretsmanager')
+        response = sm.get_secret_value(SecretId=secret_id)
+        config = json.loads(response['SecretString'])
+        _secrets_cache = config.get('clients', {})
+        _secrets_cache_time = now
+        logger.debug(f'Loaded {len(_secrets_cache)} clients from Secrets Manager')
+        return _secrets_cache
 
 
 def _get_clients_config_path() -> Optional[str]:
@@ -59,10 +83,14 @@ def _get_clients_config_path() -> Optional[str]:
     return None
 
 
-def _load_clients_config() -> Dict[str, Dict[str, str]]:
-    """Load client configuration with mtime-based caching and thread safety."""
+def _load_clients_config() -> Dict[str, Any]:
+    """Load client configuration from Secrets Manager or file, with caching."""
+    secret_id = os.getenv('CLIENTS_CONFIG_SECRET')
+    if secret_id:
+        return _load_from_secrets_manager(secret_id)
+
     global _clients_config_cache, _clients_config_path, _clients_config_mtime
-    
+
     with _config_lock:
         if _clients_config_path is None:
             _clients_config_path = _get_clients_config_path()
