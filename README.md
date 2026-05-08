@@ -140,7 +140,7 @@ El servidor maneja las peticiones concurrentes de forma segura:
         "rds:DescribeDBRecommendations",
         "s3:ListAllMyBuckets",
         "s3:GetBucketLocation",
-        "s3:GetBucketLifecycleConfiguration",
+        "s3:GetLifecycleConfiguration",
         "s3:GetBucketVersioning"
       ],
       "Resource": "*"
