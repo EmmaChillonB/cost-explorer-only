@@ -14,8 +14,8 @@
 
 """EBS inventory handler — returns pre-analyzed data for cost optimization reports.
 
-Only actionable items are returned in detail (unattached volumes, gp2 candidates,
-orphaned/old snapshots). Healthy resources are counted in the summary only.
+Only actionable items are returned in detail (unattached volumes, migration_candidates
+keyed by source type, orphaned/old snapshots). Healthy resources are counted in the summary only.
 """
 
 import asyncio
@@ -33,6 +33,12 @@ from .common import serialize_datetime
 # Snapshots older than this are flagged for review
 SNAPSHOT_AGE_THRESHOLD_DAYS = 90
 
+# EBS types that have a known upgrade target. Update here when AWS releases new volume types.
+_EBS_UPGRADE_PATHS: Dict[str, str] = {
+    "gp2": "gp3",
+    "io1": "io2",
+}
+
 
 def _describe_ebs_volumes_sync(client_id: str, region: Optional[str]) -> Dict[str, Any]:
     """Synchronous EBS volumes analysis (meant to run in a worker thread)."""
@@ -49,7 +55,7 @@ def _describe_ebs_volumes_sync(client_id: str, region: Optional[str]) -> Dict[st
     type_size_gb: Dict[str, int] = {}
     unattached_volumes = []
     attached_volumes = []
-    gp2_volumes = []
+    migration_candidates: Dict[str, List] = {src: [] for src in _EBS_UPGRADE_PATHS}
 
     for page in paginator.paginate():
         for volume in page.get('Volumes', []):
@@ -79,13 +85,14 @@ def _describe_ebs_volumes_sync(client_id: str, region: Optional[str]) -> Dict[st
                     'CreateTime': volume.get('CreateTime'),
                 }))
 
-            if vtype == 'gp2' and is_attached:
+            if vtype in _EBS_UPGRADE_PATHS and is_attached:
                 att = attachments[0]
-                gp2_volumes.append({
+                migration_candidates[vtype].append({
                     'VolumeId': volume.get('VolumeId'),
                     'SizeGB': size,
                     'AttachedTo': att.get('InstanceId'),
                     'Iops': volume.get('Iops'),
+                    'TargetType': _EBS_UPGRADE_PATHS[vtype],
                 })
 
     unattached = total - attached
@@ -104,7 +111,7 @@ def _describe_ebs_volumes_sync(client_id: str, region: Optional[str]) -> Dict[st
         },
         'attached_volumes': attached_volumes,
         'unattached_volumes': unattached_volumes,
-        'gp2_migration_candidates': gp2_volumes,
+        'migration_candidates': {k: v for k, v in migration_candidates.items() if v},
         'region': target_region,
     }
 
