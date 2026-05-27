@@ -20,6 +20,9 @@ through the AWS Cost Explorer, CloudWatch and related APIs.
 
 import os
 import sys
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from cost_optimizer.cost_explorer import (
     get_cost_and_usage,
     get_cost_and_usage_comparisons,
@@ -99,6 +102,17 @@ SERVER_INSTRUCTIONS = """
 # Get host configuration from environment (0.0.0.0 for container, 127.0.0.1 for local)
 MCP_HOST = os.getenv('MCP_HOST', '127.0.0.1')
 MCP_PORT = int(os.getenv('MCP_PORT', '8000'))
+MCP_API_KEY = os.getenv('MCP_API_KEY', '')
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not MCP_API_KEY:
+            return await call_next(request)
+        if request.headers.get('X-Api-Key') != MCP_API_KEY:
+            return JSONResponse({'error': 'Unauthorized'}, status_code=401)
+        return await call_next(request)
+
 
 # Create FastMCP server with instructions
 app = FastMCP(
@@ -176,22 +190,23 @@ async def list_active_sessions(ctx: Context) -> Dict[str, Any]:
 
 def main():
     """Run the MCP server with CLI argument support.
-    
+
     Transport can be configured via MCP_TRANSPORT environment variable:
     - 'stdio' (default): Standard input/output communication
     - 'sse': Server-Sent Events over HTTP (port 8000)
     - 'streamable-http': Streamable HTTP transport (port 8000)
-    
+
     For SSE/HTTP transports, the server listens on port 8000 by default.
     Mount path can be configured via MCP_MOUNT_PATH environment variable.
+    MCP_API_KEY environment variable enables API key authentication via X-Api-Key header.
     """
     transport = os.getenv('MCP_TRANSPORT', 'stdio')
     mount_path = os.getenv('MCP_MOUNT_PATH', None)
-    
+
     if transport not in ('stdio', 'sse', 'streamable-http'):
         logger.warning(f"Invalid MCP_TRANSPORT '{transport}', defaulting to 'stdio'")
         transport = 'stdio'
-    
+
     if mount_path:
         app.settings.mount_path = mount_path
         try:
@@ -200,7 +215,17 @@ def main():
             pass
 
     logger.info(f"Starting MCP server with transport: {transport}")
-    app.run(transport=transport, mount_path=mount_path)
+
+    if transport in ('sse', 'streamable-http') and MCP_API_KEY:
+        import uvicorn
+        if transport == 'streamable-http':
+            starlette_app = app.streamable_http_app()
+        else:
+            starlette_app = app.sse_app()
+        starlette_app.add_middleware(ApiKeyMiddleware)
+        uvicorn.run(starlette_app, host=MCP_HOST, port=MCP_PORT)
+    else:
+        app.run(transport=transport, mount_path=mount_path)
 
 
 if __name__ == '__main__':
