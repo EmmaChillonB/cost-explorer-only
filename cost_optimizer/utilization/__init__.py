@@ -14,8 +14,7 @@
 
 """Utilization handlers for AWS CloudWatch metrics."""
 
-from .ec2 import get_ec2_utilization
-from .rds import get_rds_utilization
+from .bulk import get_ec2_utilization, get_rds_utilization
 from .elb import get_elb_utilization
 from .ebs import get_ebs_utilization
 from .network import get_nat_gateway_utilization
